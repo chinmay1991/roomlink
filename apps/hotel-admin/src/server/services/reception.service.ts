@@ -1,0 +1,171 @@
+import { prisma } from '@/server/db'
+import { isAtSlaRisk } from '@/server/sla'
+import { ForbiddenError } from '@/server/hotel-rbac'
+import type { HotelSessionUser } from '@/server/require-hotel-session'
+
+/**
+ * The four functions below are hotel-wide aggregates gated, at the route
+ * layer, by module flags (`hotel_requests`, `hotel_rooms`, `hotel_staff`,
+ * `hotel_guest_sessions`) that Department Manager/Staff *also* hold — for
+ * their own, differently-scoped existing screens (their Team page, their
+ * request queue). The coarse grant alone isn't precise enough here: it
+ * would let a Department Manager/Staff session reach a hotel-wide view
+ * these functions were never meant to expose to them. This check is the
+ * real gate; call it first, in every one of these functions.
+ */
+export function requireReceptionOrAdmin(user: HotelSessionUser) {
+  if (user.userType === 'hotel_admin') return
+  if (user.roleName === 'Reception') return
+  throw new ForbiddenError('Reception access only')
+}
+
+const startOfToday = () => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+/** Reception PRD §5 — hotel-wide KPI row. Same shape as `getManagerQueueKpis`, without a department filter. */
+export async function getReceptionDashboard(hotelId: string, actor: HotelSessionUser) {
+  requireReceptionOrAdmin(actor)
+  const today = startOfToday()
+
+  const [newToday, unassigned, inProgress, escalated, highPriority, completedToday, openWork, conversations] = await Promise.all([
+    prisma.requests.count({ where: { hotel_id: hotelId, created_at: { gte: today } } }),
+    prisma.requests.count({ where: { hotel_id: hotelId, status: 'pending' } }),
+    prisma.requests.count({ where: { hotel_id: hotelId, status: 'in_progress' } }),
+    prisma.requests.count({ where: { hotel_id: hotelId, status: 'escalated' } }),
+    prisma.requests.count({ where: { hotel_id: hotelId, priority: { in: ['high', 'urgent'] }, status: { in: ['pending', 'assigned', 'in_progress'] } } }),
+    prisma.requests.count({ where: { hotel_id: hotelId, status: 'completed', completed_at: { gte: today } } }),
+    prisma.requests.findMany({
+      where: { hotel_id: hotelId, status: { in: ['pending', 'assigned', 'in_progress'] } },
+      select: { priority: true, created_at: true },
+    }),
+    prisma.conversations.findMany({
+      where: { hotel_id: hotelId },
+      select: { messages: { orderBy: { sent_at: 'desc' }, take: 1, select: { sender_type: true } } },
+    }),
+  ])
+
+  const slaAtRisk = openWork.filter((r) => isAtSlaRisk(r.priority, r.created_at)).length
+  const unreadMessages = conversations.filter((c) => c.messages[0]?.sender_type === 'guest').length
+
+  return { newToday, unassigned, inProgress, escalated, highPriority, completedToday, slaAtRisk, unreadMessages }
+}
+
+/** Reception PRD §22 — monitoring only, hotel-wide, one row per department. */
+export async function getDepartmentMonitoring(hotelId: string, actor: HotelSessionUser) {
+  requireReceptionOrAdmin(actor)
+  const departments = await prisma.departments.findMany({ where: { hotel_id: hotelId, is_enabled: true }, orderBy: { name: 'asc' } })
+
+  return Promise.all(
+    departments.map(async (dept) => {
+      const [newCount, inProgress, completedToday, openWork] = await Promise.all([
+        prisma.requests.count({ where: { hotel_id: hotelId, department_id: dept.department_id, status: 'pending' } }),
+        prisma.requests.count({ where: { hotel_id: hotelId, department_id: dept.department_id, status: 'in_progress' } }),
+        prisma.requests.count({
+          where: { hotel_id: hotelId, department_id: dept.department_id, status: 'completed', completed_at: { gte: startOfToday() } },
+        }),
+        prisma.requests.findMany({
+          where: { hotel_id: hotelId, department_id: dept.department_id, status: { in: ['pending', 'assigned', 'in_progress'] } },
+          select: { priority: true, created_at: true },
+        }),
+      ])
+      const delayed = openWork.filter((r) => isAtSlaRisk(r.priority, r.created_at)).length
+      return { department_id: dept.department_id, name: dept.name, newCount, inProgress, completedToday, delayed }
+    })
+  )
+}
+
+/** Reception PRD §23 — limited operational view only (no confidential employee info). */
+export async function getStaffStatus(hotelId: string, actor: HotelSessionUser) {
+  requireReceptionOrAdmin(actor)
+  const staff = await prisma.users.findMany({
+    where: { hotel_id: hotelId, user_type: 'hotel_staff', roles: { name: { in: ['Department Staff', 'Department Manager'] } } },
+    select: {
+      user_id: true,
+      full_name: true,
+      status: true,
+      user_departments: { include: { departments: { select: { name: true } } } },
+      requests: { where: { status: { in: ['assigned', 'in_progress'] } }, select: { request_id: true } },
+    },
+    orderBy: { full_name: 'asc' },
+  })
+
+  return staff.map((s) => ({
+    user_id: s.user_id,
+    full_name: s.full_name,
+    status: s.status,
+    departments: s.user_departments.map((ud) => ud.departments.name),
+    activeWorkload: s.requests.length,
+  }))
+}
+
+/** Reception PRD §21 — room number/type/occupancy/active session/open requests. Not a PMS. */
+export async function getRoomOverview(hotelId: string, actor: HotelSessionUser) {
+  requireReceptionOrAdmin(actor)
+  const rooms = await prisma.rooms.findMany({
+    where: { hotel_id: hotelId },
+    orderBy: [{ floor: 'asc' }, { room_number: 'asc' }],
+    include: {
+      room_types: { select: { name: true } },
+      guest_sessions: { where: { status: 'active' }, take: 1, orderBy: { issued_at: 'desc' } },
+      requests: { where: { status: { in: ['pending', 'assigned', 'in_progress', 'escalated'] } }, select: { request_id: true } },
+    },
+  })
+
+  return rooms.map((r) => ({
+    room_id: r.room_id,
+    room_number: r.room_number,
+    floor: r.floor,
+    status: r.status,
+    roomType: r.room_types?.name ?? null,
+    occupied: r.guest_sessions.length > 0,
+    activeGuestSessionId: r.guest_sessions[0]?.session_id ?? null,
+    openRequests: r.requests.length,
+  }))
+}
+
+/** Reception PRD §19 — search by room number / guest name / stay id / request id. Minimal fields only. */
+export async function searchGuests(hotelId: string, query: string, actor: HotelSessionUser) {
+  requireReceptionOrAdmin(actor)
+  const q = query.trim()
+  if (!q) return []
+
+  const isUuidLike = /^[0-9a-f-]{8,}$/i.test(q)
+
+  const sessions = await prisma.guest_sessions.findMany({
+    where: {
+      hotel_id: hotelId,
+      OR: [
+        ...(isUuidLike ? [{ session_id: q }, { requests: { some: { request_id: q } } }] : []),
+        { rooms: { room_number: { contains: q, mode: 'insensitive' as const } } },
+        { guests: { full_name: { contains: q, mode: 'insensitive' as const } } },
+      ],
+    },
+    orderBy: { issued_at: 'desc' },
+    take: 20,
+    include: {
+      rooms: { select: { room_number: true } },
+      guests: { select: { full_name: true } },
+    },
+  })
+
+  return Promise.all(
+    sessions.map(async (s) => {
+      const [activeRequests, recentConversation] = await Promise.all([
+        prisma.requests.count({ where: { guest_session_id: s.session_id, status: { in: ['pending', 'assigned', 'in_progress', 'escalated'] } } }),
+        prisma.conversations.findFirst({ where: { guest_session_id: s.session_id }, orderBy: { created_at: 'desc' } }),
+      ])
+      return {
+        session_id: s.session_id,
+        status: s.status,
+        room: s.rooms.room_number,
+        guestName: s.guests?.full_name ?? null,
+        expiresAt: s.expires_at,
+        activeRequests,
+        hasRecentConversation: !!recentConversation,
+      }
+    })
+  )
+}

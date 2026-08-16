@@ -1,0 +1,18 @@
+{
+  "name": "roomlink",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:super-admin": "npm run dev -w @roomlink/super-admin",
+    "dev:hotel-admin": "npm run dev -w @roomlink/hotel-admin",
+    "dev:guest": "npm run dev -w @roomlink/guest",
+    "build:super-admin": "npm run build -w @roomlink/super-admin",
+    "build:hotel-admin": "npm run build -w @roomlink/hotel-admin",
+    "build:guest": "npm run build -w @roomlink/guest",
+    "test": "npm test -w @roomlink/super-admin && npm test -w @roomlink/hotel-admin && npm test -w @roomlink/guest",
+    "db:generate": "npm run generate -w @roomlink/db"
+  }
+}

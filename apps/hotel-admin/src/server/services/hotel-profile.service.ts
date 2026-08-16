@@ -1,0 +1,91 @@
+import { prisma } from '@/server/db'
+import { recordAudit } from '@/server/audit'
+import { markStepComplete } from '@/server/services/hotel-onboarding.service'
+import type { UpdateHotelProfileInput, UpdateHotelLegalInput } from '@/server/validation/hotel-profile.schema'
+import type { HotelSessionUser } from '@/server/require-hotel-session'
+
+function timeToDate(hhmm: string) {
+  return new Date(`1970-01-01T${hhmm}:00Z`)
+}
+
+export function dateToTimeString(date: Date | null | undefined): string {
+  if (!date) return ''
+  return date.toISOString().slice(11, 16)
+}
+
+export async function getHotelProfile(hotelId: string) {
+  return prisma.hotels.findUniqueOrThrow({ where: { hotel_id: hotelId } })
+}
+
+export async function updateHotelProfile(hotelId: string, input: UpdateHotelProfileInput, actor: HotelSessionUser) {
+  const before = await prisma.hotels.findUniqueOrThrow({ where: { hotel_id: hotelId } })
+
+  const after = await prisma.hotels.update({
+    where: { hotel_id: hotelId },
+    data: {
+      name: input.name,
+      brand: input.brand || null,
+      description: input.description || null,
+      address_line: input.addressLine || null,
+      city: input.city || null,
+      state: input.state || null,
+      pincode: input.pincode || null,
+      country: input.country,
+      phone: input.phone || null,
+      email: input.email || null,
+      website: input.website || null,
+      time_zone: input.timeZone,
+      check_in_time: timeToDate(input.checkInTime),
+      check_out_time: timeToDate(input.checkOutTime),
+      breakfast_time: input.breakfastTime ? timeToDate(input.breakfastTime) : null,
+      restaurant_time: input.restaurantTime ? timeToDate(input.restaurantTime) : null,
+    },
+  })
+
+  await recordAudit({
+    actorId: actor.id,
+    actorType: actor.userType,
+    action: 'hotel.profile_updated',
+    entityType: 'hotel',
+    entityId: hotelId,
+    beforeState: { name: before.name, city: before.city, time_zone: before.time_zone },
+    afterState: { name: after.name, city: after.city, time_zone: after.time_zone },
+  })
+
+  await markStepComplete(hotelId, 'Hotel Profile')
+
+  return after
+}
+
+export async function updateHotelLegal(hotelId: string, input: UpdateHotelLegalInput, actor: HotelSessionUser) {
+  const before = await prisma.hotels.findUniqueOrThrow({ where: { hotel_id: hotelId } })
+
+  const after = await prisma.hotels.update({
+    where: { hotel_id: hotelId },
+    data: {
+      legal_business_name: input.legalBusinessName || null,
+      gstin: input.gstin || null,
+      pan: input.pan || null,
+      billing_address_line: input.billingAddressLine || null,
+      billing_city: input.billingCity || null,
+      billing_state: input.billingState || null,
+      billing_pincode: input.billingPincode || null,
+      billing_country: input.billingCountry || null,
+      billing_email: input.billingEmail || null,
+    },
+  })
+
+  await recordAudit({
+    actorId: actor.id,
+    actorType: actor.userType,
+    action: 'hotel.legal_updated',
+    entityType: 'hotel',
+    entityId: hotelId,
+    beforeState: { gstin: before.gstin, legal_business_name: before.legal_business_name },
+    afterState: { gstin: after.gstin, legal_business_name: after.legal_business_name },
+  })
+
+  await markStepComplete(hotelId, 'Legal & GST')
+
+  return after
+}
