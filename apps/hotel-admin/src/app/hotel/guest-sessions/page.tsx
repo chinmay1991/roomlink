@@ -12,11 +12,12 @@ export default async function GuestSessionsPage() {
   return (
     <div className="space-y-5">
       <SectionTabs section="operations" />
-      <h1 className="text-xl font-semibold text-slate-900">Guest Sessions</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Active Stays</h1>
       <GuestSessionsPanel
         sessions={sessions.map((s) => ({
           session_id: s.session_id,
           status: s.status,
+          guest_mobile_e164: s.guest_mobile_e164,
           issued_at: s.issued_at.toISOString(),
           expires_at: s.expires_at.toISOString(),
           rooms: s.rooms,

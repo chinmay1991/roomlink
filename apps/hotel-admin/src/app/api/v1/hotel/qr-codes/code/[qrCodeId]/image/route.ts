@@ -3,13 +3,15 @@ import QRCode from 'qrcode'
 import { requireHotelSession } from '@/server/require-hotel-session'
 import { requireCanHotel } from '@/server/hotel-rbac'
 import { toErrorResponse } from '@/server/api-error'
-import { getQrCodeForRoom } from '@/server/services/qr-codes.service'
+import { getQrCodeForRoom, buildRoomQrUrl } from '@/server/services/qr-codes.service'
 
 /**
  * Renders the QR as a PNG on demand — nothing is stored as an image blob
  * (qr_codes.image_url is a VARCHAR, far too small for a data URI). Encodes
- * code_value only: per the PRD's security principle, the QR identifies
- * hotel + room, not a guest session, so there's nothing sensitive in it.
+ * a real https URL carrying only the opaque code_value: per the PRD's
+ * security principle, the QR identifies hotel + room (never a raw internal
+ * ID, never a guest session), and it must be a link a phone camera will
+ * actually offer to open — not a custom URI scheme.
  */
 export async function GET(req: NextRequest, { params }: { params: { qrCodeId: string } }) {
   try {
@@ -17,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: { qrCodeId: st
     await requireCanHotel(user, 'hotel_qr_codes', 'view')
 
     const qr = await getQrCodeForRoom(user.hotelId, params.qrCodeId)
-    const payload = `roomlink://${qr.rooms.hotel_id}/${qr.rooms.room_number}/${qr.code_value}`
+    const payload = buildRoomQrUrl(qr.code_value)
     const png = await QRCode.toBuffer(payload, { type: 'png', width: 480, margin: 2 })
 
     const download = new URL(req.url).searchParams.get('download') === 'true'

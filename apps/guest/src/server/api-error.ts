@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { Prisma } from '@roomlink/db'
-import { UnauthorizedError, ForbiddenError, SessionNotActiveError, InvalidPinError } from '@/server/errors'
+import { UnauthorizedError, ForbiddenError, SessionNotActiveError, MobileMismatchError, RateLimitedError } from '@/server/errors'
 
 export function toErrorResponse(error: unknown) {
-  if (error instanceof InvalidPinError) {
+  if (error instanceof RateLimitedError) {
+    return NextResponse.json(
+      { error: error.message, retryAfterSeconds: error.retryAfterSeconds },
+      { status: 429, headers: { 'Retry-After': String(error.retryAfterSeconds) } },
+    )
+  }
+  if (error instanceof MobileMismatchError) {
     return NextResponse.json({ error: error.message }, { status: 401 })
   }
   if (error instanceof UnauthorizedError) {

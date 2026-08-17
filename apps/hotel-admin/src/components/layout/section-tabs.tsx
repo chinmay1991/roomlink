@@ -25,7 +25,7 @@ const SECTIONS = {
   operations: [
     { href: '/hotel/activity', label: 'Activity' },
     { href: '/hotel/notifications', label: 'Notifications' },
-    { href: '/hotel/guest-sessions', label: 'Guest Sessions' },
+    { href: '/hotel/guest-sessions', label: 'Active Stays' },
   ],
 } as const
 

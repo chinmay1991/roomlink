@@ -1,8 +1,9 @@
-import { randomBytes, randomInt } from 'crypto'
-import bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 import { prisma } from '@/server/db'
 import { recordAudit } from '@/server/audit'
-import type { IssueGuestSessionInput } from '@/server/validation/guest-session.schema'
+import { normalizePhone } from '@/server/phone'
+import { InvalidPhoneError, InvalidTransitionError } from '@/server/errors'
+import type { IssueGuestSessionInput, UpdateGuestMobileInput } from '@/server/validation/guest-session.schema'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
 
 export async function listGuestSessions(hotelId: string) {
@@ -14,24 +15,25 @@ export async function listGuestSessions(hotelId: string) {
 }
 
 /**
- * Reception/GM "check-in" action — the guest-facing scan+PIN redemption flow
- * itself is out of this module's build scope (confirmed decision), but
- * something has to issue the PIN a guest is handed at check-in, and the GM
- * needs to be able to see/terminate sessions (PRD §9), so a session has to
- * exist to view. PIN is returned once, never stored in the clear.
+ * Reception/GM "Activate Stay" action — a scanning guest verifies against
+ * this stay's mobile number (never a PIN). A photographed old QR must not
+ * grant access after checkout (PRD §12) — enforced here by only ever having
+ * one active session per room at a time.
  */
 export async function issueGuestSession(hotelId: string, input: IssueGuestSessionInput, actor: HotelSessionUser) {
-  await prisma.rooms.findFirstOrThrow({ where: { room_id: input.roomId, hotel_id: hotelId } })
+  const room = await prisma.rooms.findFirstOrThrow({ where: { room_id: input.roomId, hotel_id: hotelId } })
+  if (room.status !== 'active') {
+    throw new InvalidTransitionError('Cannot activate a stay for a room that is not active.')
+  }
 
-  // A photographed old QR must not grant access after checkout (PRD §12) —
-  // enforced here by only ever having one active session per room at a time.
+  const normalizedMobile = normalizePhone(input.mobile)
+  if (!normalizedMobile) throw new InvalidPhoneError()
+
   await prisma.guest_sessions.updateMany({
     where: { hotel_id: hotelId, room_id: input.roomId, status: 'active' },
     data: { status: 'terminated', terminated_by: actor.id, terminated_at: new Date() },
   })
 
-  const pin = String(randomInt(0, 1_000_000)).padStart(6, '0')
-  const pinHash = await bcrypt.hash(pin, 10)
   const sessionToken = randomBytes(24).toString('hex')
   const expiresAt = new Date(Date.now() + input.hoursValid * 60 * 60 * 1000)
 
@@ -49,7 +51,7 @@ export async function issueGuestSession(hotelId: string, input: IssueGuestSessio
       room_id: input.roomId,
       guest_id: guestId,
       session_token: sessionToken,
-      pin_hash: pinHash,
+      guest_mobile_e164: normalizedMobile,
       expires_at: expiresAt,
       status: 'active',
     },
@@ -64,7 +66,41 @@ export async function issueGuestSession(hotelId: string, input: IssueGuestSessio
     afterState: { room_id: input.roomId },
   })
 
-  return { session, pin }
+  return { session }
+}
+
+/**
+ * Reception "Edit Mobile Number" action — rotates `session_token` so any
+ * browser cookie already issued under the old number stops resolving via
+ * `requireGuestSession` immediately, and clears any verification lockout so
+ * the guest gets a clean slate against the new number.
+ */
+export async function updateGuestMobile(hotelId: string, sessionId: string, input: UpdateGuestMobileInput, actor: HotelSessionUser) {
+  const before = await prisma.guest_sessions.findFirstOrThrow({ where: { session_id: sessionId, hotel_id: hotelId } })
+
+  const normalizedMobile = normalizePhone(input.mobile)
+  if (!normalizedMobile) throw new InvalidPhoneError()
+
+  const after = await prisma.guest_sessions.update({
+    where: { session_id: sessionId },
+    data: {
+      guest_mobile_e164: normalizedMobile,
+      session_token: randomBytes(24).toString('hex'),
+      failed_verification_attempts: 0,
+      verification_locked_until: null,
+    },
+  })
+
+  await recordAudit({
+    actorId: actor.id,
+    actorType: actor.userType,
+    action: 'guest_session.mobile_updated',
+    entityType: 'guest_session',
+    entityId: sessionId,
+    beforeState: { guest_mobile_e164: before.guest_mobile_e164 },
+  })
+
+  return after
 }
 
 export async function terminateGuestSession(hotelId: string, sessionId: string, actor: HotelSessionUser) {

@@ -3,6 +3,8 @@ import { requireGuestSession } from '@/server/require-guest-session'
 import { listMenu } from '@/server/services/menu.service'
 import { toErrorResponse } from '@/server/api-error'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const ctx = await requireGuestSession()

@@ -1,9 +1,12 @@
-import bcrypt from 'bcryptjs'
 import { prisma } from '@/server/db'
 import { recordAudit } from '@/server/audit'
-import { SessionNotActiveError, InvalidPinError } from '@/server/errors'
+import { normalizePhone } from '@/server/phone'
+import { SessionNotActiveError, MobileMismatchError, RateLimitedError } from '@/server/errors'
 import type { VerifySessionInput } from '@/server/validation/session.schema'
 import type { GuestSessionContext } from '@/server/require-guest-session'
+
+const MAX_VERIFICATION_ATTEMPTS = 5
+const VERIFICATION_LOCKOUT_MS = 15 * 60 * 1000
 
 /**
  * Guest PRD §2/§4 — the QR only ever identifies hotel + room, never
@@ -43,13 +46,15 @@ export async function resolveQrCode(codeValue: string) {
 }
 
 /**
- * PRD §5 — PIN + hotel + room + active stay, all derived server-side from
- * `codeValue`, never from a client-asserted hotel/room id. `bcrypt.compare`
- * is timing-safe by construction. Returns the session_token to be set as
- * the guest's cookie by the calling route handler (cookie mutation isn't
- * available from a plain service function in the App Router).
+ * Guest mobile-number verification — hotel + room + active stay, all
+ * derived server-side from `codeValue`, never from a client-asserted
+ * hotel/room id. The submitted number is normalized the same way Reception's
+ * input was at activation time before comparison — never compare a raw,
+ * unnormalized value. Returns the session_token to be set as the guest's
+ * cookie by the calling route handler (cookie mutation isn't available from
+ * a plain service function in the App Router).
  */
-export async function verifyGuestSession(input: VerifySessionInput) {
+export async function verifyGuestMobile(input: VerifySessionInput) {
   const { hotelId, roomId } = await resolveQrCode(input.codeValue)
 
   const session = await prisma.guest_sessions.findFirst({
@@ -62,9 +67,41 @@ export async function verifyGuestSession(input: VerifySessionInput) {
     throw new SessionNotActiveError('session_expired', 'Your RoomLink session has expired.')
   }
 
-  const pinMatches = await bcrypt.compare(input.pin, session.pin_hash)
-  if (!pinMatches) {
-    throw new InvalidPinError('Incorrect PIN. Please try again.')
+  // Lockout is persisted on the guest_sessions row itself (not an in-memory
+  // counter) so it holds up across Vercel's multiple, short-lived
+  // serverless instances — an in-memory Map only works for a single
+  // long-running process.
+  if (session.verification_locked_until && session.verification_locked_until.getTime() > Date.now()) {
+    throw new RateLimitedError(Math.ceil((session.verification_locked_until.getTime() - Date.now()) / 1000))
+  }
+
+  const normalized = normalizePhone(input.mobile)
+  // An unparseable input is treated identically to a genuine mismatch — it
+  // must never behave as a distinct error, or it becomes an oracle a guest
+  // could use to probe which numbers are validly formatted vs. registered.
+  const matches = normalized !== null && normalized === session.guest_mobile_e164
+  if (!matches) {
+    const attempts = session.failed_verification_attempts + 1
+    if (attempts >= MAX_VERIFICATION_ATTEMPTS) {
+      const lockedUntil = new Date(Date.now() + VERIFICATION_LOCKOUT_MS)
+      await prisma.guest_sessions.update({
+        where: { session_id: session.session_id },
+        data: { failed_verification_attempts: attempts, verification_locked_until: lockedUntil },
+      })
+      throw new RateLimitedError(Math.ceil(VERIFICATION_LOCKOUT_MS / 1000))
+    }
+    await prisma.guest_sessions.update({
+      where: { session_id: session.session_id },
+      data: { failed_verification_attempts: attempts },
+    })
+    throw new MobileMismatchError()
+  }
+
+  if (session.failed_verification_attempts > 0 || session.verification_locked_until) {
+    await prisma.guest_sessions.update({
+      where: { session_id: session.session_id },
+      data: { failed_verification_attempts: 0, verification_locked_until: null },
+    })
   }
 
   await recordAudit({

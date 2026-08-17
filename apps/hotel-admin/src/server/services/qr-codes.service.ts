@@ -2,10 +2,21 @@ import { randomBytes } from 'crypto'
 import { prisma } from '@/server/db'
 import { recordAudit } from '@/server/audit'
 import { markStepComplete } from '@/server/services/hotel-onboarding.service'
+import { getGuestAppUrl } from '@/server/config'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
 
 function generateCodeValue() {
   return randomBytes(16).toString('hex')
+}
+
+/**
+ * The URL a room's QR code should actually encode: a real, clickable
+ * `https://` link into the guest app, carrying only the opaque
+ * `code_value` — never a raw internal ID. Throws `ConfigurationError`
+ * (via `getGuestAppUrl`) if the guest app's URL isn't configured.
+ */
+export function buildRoomQrUrl(codeValue: string): string {
+  return `${getGuestAppUrl()}/r/${codeValue}`
 }
 
 /**

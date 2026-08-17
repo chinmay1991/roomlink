@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionSchema } from '@/server/validation/session.schema'
-import { verifyGuestSession } from '@/server/services/session.service'
+import { verifyGuestMobile } from '@/server/services/session.service'
 import { toErrorResponse } from '@/server/api-error'
 import { GUEST_SESSION_COOKIE } from '@/server/require-guest-session'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
     const body = verifySessionSchema.parse(await req.json())
-    const session = await verifyGuestSession(body)
+    const session = await verifyGuestMobile(body)
 
     const res = NextResponse.json({ ok: true })
     res.cookies.set(GUEST_SESSION_COOKIE, session.session_token, {

@@ -4,6 +4,8 @@ import { createOrderSchema } from '@/server/validation/order.schema'
 import { createGuestOrder, listGuestOrders } from '@/server/services/orders.service'
 import { toErrorResponse } from '@/server/api-error'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const ctx = await requireGuestSession()

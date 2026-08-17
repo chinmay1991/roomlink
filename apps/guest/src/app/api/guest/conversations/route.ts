@@ -4,6 +4,8 @@ import { sendMessageSchema } from '@/server/validation/conversation.schema'
 import { sendGuestMessage, getGuestConversation } from '@/server/services/conversations.service'
 import { toErrorResponse } from '@/server/api-error'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const ctx = await requireGuestSession()

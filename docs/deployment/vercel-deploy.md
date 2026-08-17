@@ -124,6 +124,12 @@ Preview environments.
 | `DATABASE_URL` | Same Supabase connection string as above |
 | `NEXTAUTH_URL` | `https://<your-hotel-admin-domain>` |
 | `NEXTAUTH_SECRET` | A **different** random secret than super-admin's |
+| `NEXT_PUBLIC_APP_URL` | The **guest app's** production URL, e.g. `https://roomlink-guest.vercel.app` or your custom domain — **not** hotel-admin's own URL. Every room QR code is generated as `${NEXT_PUBLIC_APP_URL}/r/<code>`; QR generation fails with a clear config error (not a crash) if this is unset. Required in both Production and Preview. |
+
+**Preview caveat for `NEXT_PUBLIC_APP_URL`:** Vercel Preview URLs are per-deploy and dynamic, so
+a hotel-admin Preview build can't automatically know a matching guest Preview URL. Point
+Preview's `NEXT_PUBLIC_APP_URL` at guest **Production** for manual QR testing, unless you're
+maintaining a stable guest Preview alias.
 
 ### `roomlink-guest`
 

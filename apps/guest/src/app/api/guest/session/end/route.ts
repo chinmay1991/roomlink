@@ -3,6 +3,8 @@ import { requireGuestSession, GUEST_SESSION_COOKIE } from '@/server/require-gues
 import { endGuestSession } from '@/server/services/session.service'
 import { toErrorResponse } from '@/server/api-error'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST() {
   try {
     const ctx = await requireGuestSession()

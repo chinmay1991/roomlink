@@ -3,6 +3,8 @@ import { requireGuestSession } from '@/server/require-guest-session'
 import { getGuestRequestById } from '@/server/services/requests.service'
 import { toErrorResponse } from '@/server/api-error'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest, { params }: { params: { requestId: string } }) {
   try {
     const ctx = await requireGuestSession()

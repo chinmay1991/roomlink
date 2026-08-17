@@ -93,24 +93,26 @@ model guests {
 }
 
 model guest_sessions {
-  session_id    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotel_id      String               @db.Uuid
-  room_id       String               @db.Uuid
-  guest_id      String?              @db.Uuid
-  session_token String               @unique @db.VarChar(255)
-  pin_hash      String               @db.VarChar(255)
-  issued_at     DateTime             @default(now()) @db.Timestamptz(6)
-  expires_at    DateTime             @db.Timestamptz(6)
-  status        guest_session_status @default(active)
-  terminated_by String?              @db.Uuid
-  terminated_at DateTime?            @db.Timestamptz(6)
-  hotels        hotels               @relation(fields: [hotel_id], references: [hotel_id], onDelete: Cascade, onUpdate: NoAction)
-  rooms         rooms                @relation(fields: [room_id], references: [room_id], onDelete: NoAction, onUpdate: NoAction)
-  guests        guests?              @relation(fields: [guest_id], references: [guest_id], onDelete: NoAction, onUpdate: NoAction)
-  users         users?               @relation(fields: [terminated_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
-  requests      requests[]
-  orders        orders[]
-  conversations conversations[]
+  session_id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotel_id                     String               @db.Uuid
+  room_id                      String               @db.Uuid
+  guest_id                     String?              @db.Uuid
+  session_token                String               @unique @db.VarChar(255)
+  guest_mobile_e164            String?              @db.VarChar(20)
+  issued_at                    DateTime             @default(now()) @db.Timestamptz(6)
+  expires_at                   DateTime             @db.Timestamptz(6)
+  status                       guest_session_status @default(active)
+  terminated_by                String?              @db.Uuid
+  terminated_at                DateTime?            @db.Timestamptz(6)
+  failed_verification_attempts Int                  @default(0)
+  verification_locked_until    DateTime?            @db.Timestamptz(6)
+  hotels                       hotels               @relation(fields: [hotel_id], references: [hotel_id], onDelete: Cascade, onUpdate: NoAction)
+  rooms                        rooms                @relation(fields: [room_id], references: [room_id], onDelete: NoAction, onUpdate: NoAction)
+  guests                       guests?              @relation(fields: [guest_id], references: [guest_id], onDelete: NoAction, onUpdate: NoAction)
+  users                        users?               @relation(fields: [terminated_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  requests                     requests[]
+  orders                       orders[]
+  conversations                conversations[]
 
   @@index([hotel_id, room_id], map: "idx_guest_sessions_hotel_room")
 }
