@@ -22,6 +22,11 @@ const withPWA = require('next-pwa')({
 })
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {}
+const nextConfig = {
+  // apps/super-admin imports @roomlink/db and @roomlink/ui from outside its
+  // own directory (npm workspace packages) — Next.js must be told to
+  // transpile them rather than treat them as pre-built.
+  transpilePackages: ['@roomlink/db', '@roomlink/ui'],
+}
 
 module.exports = withPWA(nextConfig)

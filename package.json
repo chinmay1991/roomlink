@@ -6,6 +6,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "npm run generate -w @roomlink/db",
     "dev:super-admin": "npm run dev -w @roomlink/super-admin",
     "dev:hotel-admin": "npm run dev -w @roomlink/hotel-admin",
     "dev:guest": "npm run dev -w @roomlink/guest",
