@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/server/db'
 import { recordAudit } from '@/server/audit'
 import { normalizePhone } from '@/server/phone'
@@ -97,20 +98,29 @@ export async function verifyGuestMobile(input: VerifySessionInput) {
     throw new MobileMismatchError()
   }
 
+  // Success-path bookkeeping only — don't hold up the response for it.
+  // (Failure-path writes above stay awaited: they're the lockout's actual
+  // enforcement, not bookkeeping, so the next attempt must see them land.)
   if (session.failed_verification_attempts > 0 || session.verification_locked_until) {
-    await prisma.guest_sessions.update({
-      where: { session_id: session.session_id },
-      data: { failed_verification_attempts: 0, verification_locked_until: null },
-    })
+    waitUntil(
+      prisma.guest_sessions
+        .update({
+          where: { session_id: session.session_id },
+          data: { failed_verification_attempts: 0, verification_locked_until: null },
+        })
+        .catch((err) => console.error('Failed to reset verification attempts', err))
+    )
   }
 
-  await recordAudit({
-    actorId: session.guest_id,
-    actorType: 'guest',
-    action: 'guest_session.verified',
-    entityType: 'guest_session',
-    entityId: session.session_id,
-  })
+  waitUntil(
+    recordAudit({
+      actorId: session.guest_id,
+      actorType: 'guest',
+      action: 'guest_session.verified',
+      entityType: 'guest_session',
+      entityId: session.session_id,
+    }).catch((err) => console.error('Failed to record guest verification audit', err))
+  )
 
   return session
 }

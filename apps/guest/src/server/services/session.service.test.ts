@@ -46,6 +46,10 @@ function sessionRow(overrides: Record<string, unknown> = {}, room = HOTEL_A, mob
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // Real Prisma calls always return a promise; verifyGuestMobile's
+  // success-path writes are backgrounded via waitUntil(promise.catch(...)),
+  // which needs a thenable even when a test doesn't care about the result.
+  mockPrisma.guest_sessions.update.mockResolvedValue({})
 })
 
 describe('resolveQrCode', () => {
