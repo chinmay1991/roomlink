@@ -47,14 +47,34 @@ export type Alert = {
 
 /** Epic 1's alert feed — each rule reuses a service that already exists for its own page. */
 export async function getAlerts(): Promise<Alert[]> {
-  const alerts: Alert[] = []
   const now = new Date()
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
-  const trialsEnding = await prisma.subscriptions.findMany({
-    where: { status: 'trial', trial_end_date: { gte: now, lte: in7Days } },
-    include: { hotels: { select: { hotel_id: true, name: true } } },
-  })
+  // These 5 lookups are independent — run them concurrently instead of one
+  // DB round trip at a time (each round trip pays the app-to-DB region gap).
+  const [trialsEnding, expiringSoon, onboarding, failedPayments, slaBreached] = await Promise.all([
+    prisma.subscriptions.findMany({
+      where: { status: 'trial', trial_end_date: { gte: now, lte: in7Days } },
+      include: { hotels: { select: { hotel_id: true, name: true } } },
+    }),
+    prisma.subscriptions.findMany({
+      where: { status: 'active', end_date: { gte: now, lte: in7Days } },
+      include: { hotels: { select: { hotel_id: true, name: true } } },
+    }),
+    listOnboardingStatus(),
+    prisma.payments.findMany({
+      where: { status: 'failed' },
+      include: { invoices: { include: { hotels: { select: { hotel_id: true, name: true } } } } },
+    }),
+    prisma.support_tickets.findMany({
+      where: { status: { in: ['open', 'assigned'] }, created_at: { lte: dayAgo } },
+      include: { hotels: { select: { hotel_id: true, name: true } } },
+    }),
+  ])
+
+  const alerts: Alert[] = []
+
   for (const sub of trialsEnding) {
     alerts.push({
       severity: 'warning',
@@ -64,10 +84,6 @@ export async function getAlerts(): Promise<Alert[]> {
     })
   }
 
-  const expiringSoon = await prisma.subscriptions.findMany({
-    where: { status: 'active', end_date: { gte: now, lte: in7Days } },
-    include: { hotels: { select: { hotel_id: true, name: true } } },
-  })
   for (const sub of expiringSoon) {
     alerts.push({
       severity: 'warning',
@@ -77,7 +93,6 @@ export async function getAlerts(): Promise<Alert[]> {
     })
   }
 
-  const onboarding = await listOnboardingStatus()
   for (const row of onboarding.filter(isStalled)) {
     alerts.push({
       severity: 'critical',
@@ -87,10 +102,6 @@ export async function getAlerts(): Promise<Alert[]> {
     })
   }
 
-  const failedPayments = await prisma.payments.findMany({
-    where: { status: 'failed' },
-    include: { invoices: { include: { hotels: { select: { hotel_id: true, name: true } } } } },
-  })
   for (const payment of failedPayments) {
     alerts.push({
       severity: 'critical',
@@ -100,10 +111,6 @@ export async function getAlerts(): Promise<Alert[]> {
     })
   }
 
-  const slaBreached = await prisma.support_tickets.findMany({
-    where: { status: { in: ['open', 'assigned'] }, created_at: { lte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
-    include: { hotels: { select: { hotel_id: true, name: true } } },
-  })
   for (const ticket of slaBreached) {
     alerts.push({
       severity: 'critical',
