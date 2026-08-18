@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
+import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/server/db'
 import { HOTEL_PORTAL_USER_TYPES, HotelPortalUserType } from '@/lib/permissions'
 import { checkLoginRateLimit, recordLoginFailure, resetLoginAttempts } from '@/server/rate-limit'
@@ -25,7 +26,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error(`Too many attempts. Try again in ${Math.ceil((rateLimit.retryAfterSeconds ?? 0) / 60)}m.`)
         }
 
-        const user = await prisma.users.findUnique({ where: { email } })
+        const user = await prisma.users.findUnique({ where: { email }, include: { roles: true } })
         if (!user) {
           recordLoginFailure(email)
           return null
@@ -45,12 +46,14 @@ export const authOptions: NextAuthOptions = {
 
         resetLoginAttempts(email)
 
-        await prisma.users.update({
-          where: { user_id: user.user_id },
-          data: { last_login_at: new Date() },
-        })
-
-        const role = await prisma.roles.findUnique({ where: { role_id: user.role_id } })
+        // Don't hold up the login response for a bookkeeping write — record it
+        // in the background. waitUntil keeps the serverless function alive
+        // until the update settles instead of racing the response teardown.
+        waitUntil(
+          prisma.users
+            .update({ where: { user_id: user.user_id }, data: { last_login_at: new Date() } })
+            .catch((err) => console.error('Failed to record last_login_at', err))
+        )
 
         return {
           id: user.user_id,
@@ -58,7 +61,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           userType: user.user_type,
           roleId: user.role_id,
-          roleName: role?.name ?? null,
+          roleName: user.roles?.name ?? null,
           hotelId: user.hotel_id,
         }
       },
