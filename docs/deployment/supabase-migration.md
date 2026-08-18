@@ -41,11 +41,30 @@ Supabase gives you two connection strings that matter here:
   migrations; fine for everything else too if you're not deploying to a serverless platform.
 
 Since all three RoomLink apps here run as long-lived Node processes (`next dev` / `next start`), not
-serverless functions, **the simplest correct setup is: use the direct connection (port 5432)
-everywhere** — for both migrations and runtime. Add the pooler split later only if you deploy to a
-serverless/edge platform (Vercel, etc.) and start seeing "too many connections" errors.
+serverless functions, **the simplest correct setup for local dev is: use the direct connection
+(port 5432) everywhere.**
 
-Copy the **direct connection** string. It looks like:
+**On Vercel (or any serverless/edge deployment), use the pooled connection (port 6543) for
+`DATABASE_URL` instead, and append `?pgbouncer=true&connection_limit=1`:**
+
+```
+postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+```
+
+`pgbouncer=true` is required, not optional — without it Prisma issues named prepared statements,
+which PgBouncer's transaction-pooling mode can silently break (a transaction may land on a different
+backend Postgres connection than the one that prepared the statement), causing intermittent
+`prepared statement "sN" already exists`/`does not exist` errors that Prisma retries internally —
+adding real, hard-to-notice latency to every request. Keep the **direct** connection (port 5432,
+no `pgbouncer` flag) as a separate `DIRECT_URL` for `prisma migrate`, since PgBouncer transaction
+mode doesn't support the DDL/prepared-statement behavior migrations need.
+
+Also make sure the Supabase project's region is close to (ideally the same as) wherever your
+serverless functions execute — a region mismatch (e.g. Supabase in `ap-southeast-2` while Vercel
+functions run in `iad1`) adds a full cross-region round trip to every query, which is often the
+single biggest contributor to a slow login/request.
+
+Copy the **direct connection** string for migrations. It looks like:
 
 ```
 postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
