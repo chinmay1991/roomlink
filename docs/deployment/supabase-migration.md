@@ -45,10 +45,10 @@ serverless functions, **the simplest correct setup for local dev is: use the dir
 (port 5432) everywhere.**
 
 **On Vercel (or any serverless/edge deployment), use the pooled connection (port 6543) for
-`DATABASE_URL` instead, and append `?pgbouncer=true&connection_limit=1`:**
+`DATABASE_URL` instead, and append `?pgbouncer=true&connection_limit=10`:**
 
 ```
-postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10
 ```
 
 `pgbouncer=true` is required, not optional — without it Prisma issues named prepared statements,
@@ -58,6 +58,16 @@ backend Postgres connection than the one that prepared the statement), causing i
 adding real, hard-to-notice latency to every request. Keep the **direct** connection (port 5432,
 no `pgbouncer` flag) as a separate `DIRECT_URL` for `prisma migrate`, since PgBouncer transaction
 mode doesn't support the DDL/prepared-statement behavior migrations need.
+
+`connection_limit` caps how many physical connections *this one Prisma client* can hold at once —
+it is not just an "exhaust the pooler" safety knob. If any request fires more than `connection_limit`
+concurrent queries (e.g. a dashboard page doing several `Promise.all`'d lookups), Prisma queues the
+extras and runs them one at a time over the connections it does have, silently serializing work that
+was written to run in parallel — each queued query still pays a full round trip, so this can be
+*slower* than not pooling concurrency at all. Set it to comfortably cover the most concurrent queries
+any single request in the app fires (currently the super-admin dashboard, at ~8), and keep it under
+Supabase's own pooler **Pool Size** (Project Settings → Database → Connection Pooling) shared across
+however many concurrent serverless invocations you expect.
 
 Also make sure the Supabase project's region is close to (ideally the same as) wherever your
 serverless functions execute — a region mismatch (e.g. Supabase in `ap-southeast-2` while Vercel
