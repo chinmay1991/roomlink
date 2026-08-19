@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { signIn } from 'next-auth/react'
@@ -15,6 +15,7 @@ export function LoginForm() {
     searchParams.get('error') === 'forbidden' ? 'Your account does not have Hotel Admin portal access.' : null
   )
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
 
   const {
     register,
@@ -23,9 +24,12 @@ export function LoginForm() {
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) })
 
   async function onSubmit(values: LoginInput) {
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setFormError(null)
     const result = await signIn('credentials', { ...values, redirect: false })
+    submittingRef.current = false
     setSubmitting(false)
 
     if (result?.error) {
@@ -49,13 +53,26 @@ export function LoginForm() {
 
       <div>
         <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" autoComplete="email" placeholder="you@hotel.com" {...register('email')} />
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          placeholder="you@hotel.com"
+          disabled={submitting}
+          {...register('email')}
+        />
         {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
       </div>
 
       <div>
         <Label htmlFor="password">Password</Label>
-        <Input id="password" type="password" autoComplete="current-password" {...register('password')} />
+        <Input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          disabled={submitting}
+          {...register('password')}
+        />
         {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
       </div>
 

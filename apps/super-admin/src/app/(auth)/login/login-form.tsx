@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { signIn } from 'next-auth/react'
@@ -19,6 +19,7 @@ export function LoginForm() {
   const [needsMfa, setNeedsMfa] = useState(false)
   const [mfaToken, setMfaToken] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
 
   const {
     register,
@@ -28,9 +29,12 @@ export function LoginForm() {
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) })
 
   async function attemptSignIn(values: LoginInput, token?: string) {
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setFormError(null)
     const result = await signIn('credentials', { ...values, mfaToken: token, redirect: false })
+    submittingRef.current = false
     setSubmitting(false)
 
     if (result?.error === 'MFA_REQUIRED') {
@@ -73,6 +77,7 @@ export function LoginForm() {
             maxLength={6}
             value={mfaToken}
             onChange={(e) => setMfaToken(e.target.value)}
+            disabled={submitting}
             autoFocus
           />
         </div>
@@ -93,13 +98,26 @@ export function LoginForm() {
 
       <div>
         <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" autoComplete="email" placeholder="you@roomlink.io" {...register('email')} />
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          placeholder="you@roomlink.io"
+          disabled={submitting}
+          {...register('email')}
+        />
         {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
       </div>
 
       <div>
         <Label htmlFor="password">Password</Label>
-        <Input id="password" type="password" autoComplete="current-password" {...register('password')} />
+        <Input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          disabled={submitting}
+          {...register('password')}
+        />
         {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
       </div>
 
