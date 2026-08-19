@@ -1,8 +1,11 @@
+import { unstable_cache, revalidateTag } from 'next/cache'
 import { prisma } from '@/server/db'
 import { recordAudit } from '@/server/audit'
 import { markStepComplete } from '@/server/services/hotel-onboarding.service'
 import type { UpdateHotelProfileInput, UpdateHotelLegalInput } from '@/server/validation/hotel-profile.schema'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
+
+const profileTag = (hotelId: string) => `hotel-profile-${hotelId}`
 
 function timeToDate(hhmm: string) {
   return new Date(`1970-01-01T${hhmm}:00Z`)
@@ -13,8 +16,18 @@ export function dateToTimeString(date: Date | null | undefined): string {
   return date.toISOString().slice(11, 16)
 }
 
+/**
+ * Backs both the Profile and Legal pages — same `hotels` row, so one cache
+ * entry (busted by either update function below) covers both. Business
+ * info/GSTIN/PAN/billing address change rarely; see getHotelSettings for
+ * why unstable_cache (not route-level revalidate) is what's needed here.
+ */
 export async function getHotelProfile(hotelId: string) {
-  return prisma.hotels.findUniqueOrThrow({ where: { hotel_id: hotelId } })
+  return unstable_cache(
+    async (id: string) => prisma.hotels.findUniqueOrThrow({ where: { hotel_id: id } }),
+    ['hotel-profile'],
+    { revalidate: 60, tags: [profileTag(hotelId)] }
+  )(hotelId)
 }
 
 export async function updateHotelProfile(hotelId: string, input: UpdateHotelProfileInput, actor: HotelSessionUser) {
@@ -53,6 +66,7 @@ export async function updateHotelProfile(hotelId: string, input: UpdateHotelProf
   })
 
   await markStepComplete(hotelId, 'Hotel Profile')
+  revalidateTag(profileTag(hotelId))
 
   return after
 }
@@ -86,6 +100,7 @@ export async function updateHotelLegal(hotelId: string, input: UpdateHotelLegalI
   })
 
   await markStepComplete(hotelId, 'Legal & GST')
+  revalidateTag(profileTag(hotelId))
 
   return after
 }
