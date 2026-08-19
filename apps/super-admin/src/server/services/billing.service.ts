@@ -129,25 +129,52 @@ export async function refundInvoice(invoiceId: string, actor: SessionUser) {
   return invoice
 }
 
-export async function exportInvoicesCsv(): Promise<string> {
-  const invoices = await prisma.invoices.findMany({
-    orderBy: { created_at: 'desc' },
-    include: { hotels: { select: { name: true } } },
-  })
+const INVOICE_CSV_HEADER = 'Invoice Number,Hotel,Amount,Currency,Status,Due Date,Paid Date,Created At\n'
+const INVOICE_EXPORT_BATCH_SIZE = 500
 
-  const header = 'Invoice Number,Hotel,Amount,Currency,Status,Due Date,Paid Date,Created At'
-  const rows = invoices.map((inv) =>
-    [
-      inv.invoice_number,
-      `"${inv.hotels.name.replace(/"/g, '""')}"`,
-      inv.amount.toString(),
-      inv.currency,
-      inv.status,
-      inv.due_date?.toISOString().slice(0, 10) ?? '',
-      inv.paid_date?.toISOString().slice(0, 10) ?? '',
-      inv.created_at.toISOString(),
-    ].join(',')
-  )
+function invoiceCsvRow(inv: {
+  invoice_number: string
+  hotels: { name: string }
+  amount: { toString(): string }
+  currency: string
+  status: string
+  due_date: Date | null
+  paid_date: Date | null
+  created_at: Date
+}): string {
+  return [
+    inv.invoice_number,
+    `"${inv.hotels.name.replace(/"/g, '""')}"`,
+    inv.amount.toString(),
+    inv.currency,
+    inv.status,
+    inv.due_date?.toISOString().slice(0, 10) ?? '',
+    inv.paid_date?.toISOString().slice(0, 10) ?? '',
+    inv.created_at.toISOString(),
+  ].join(',')
+}
 
-  return [header, ...rows].join('\n')
+/**
+ * Yields CSV chunks one DB page at a time instead of loading every invoice
+ * into memory before responding — lets the route start streaming bytes to
+ * the browser immediately rather than blocking on the full query + string.
+ */
+export async function* streamInvoicesCsv(): AsyncGenerator<string> {
+  yield INVOICE_CSV_HEADER
+
+  let cursor: string | undefined
+  while (true) {
+    const invoices = await prisma.invoices.findMany({
+      take: INVOICE_EXPORT_BATCH_SIZE,
+      ...(cursor ? { skip: 1, cursor: { invoice_id: cursor } } : {}),
+      orderBy: [{ created_at: 'desc' }, { invoice_id: 'desc' }],
+      include: { hotels: { select: { name: true } } },
+    })
+    if (invoices.length === 0) return
+
+    yield invoices.map(invoiceCsvRow).join('\n') + '\n'
+
+    if (invoices.length < INVOICE_EXPORT_BATCH_SIZE) return
+    cursor = invoices[invoices.length - 1].invoice_id
+  }
 }
