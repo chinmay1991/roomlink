@@ -19,6 +19,14 @@ const withPWA = require('next-pwa')({
       },
     },
   ],
+  // Every route's JS chunk (~60-70 files) was being precached eagerly the
+  // moment the service worker installed — on first login and on every
+  // deploy — competing for bandwidth with the page the user actually asked
+  // for. The NetworkFirst rule above already caches each chunk the first
+  // time it's requested, so precaching only needs to warm the handful of
+  // files every page depends on (framework/webpack/polyfills + CSS/fonts),
+  // not every page in the app.
+  buildExcludes: [/chunks\/app\/.*\.js$/, /chunks\/pages\/.*\.js$/],
 })
 
 /** @type {import('next').NextConfig} */

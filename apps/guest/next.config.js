@@ -20,6 +20,10 @@ const withPWA = require('next-pwa')({
       },
     },
   ],
+  // Every route's JS chunk was being precached eagerly the moment the
+  // service worker installed instead of lazily via the NetworkFirst rule
+  // above. Mirrors apps/hotel-admin / apps/super-admin.
+  buildExcludes: [/chunks\/app\/.*\.js$/, /chunks\/pages\/.*\.js$/],
 })
 
 /** @type {import('next').NextConfig} */
