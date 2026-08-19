@@ -124,29 +124,51 @@ export async function listEligibleAssignees(hotelId: string, departmentId: strin
   return { manager: department.users, members }
 }
 
-/** PRD §3 — a department manager's queue KPI row. */
+type ManagerQueueKpiRow = {
+  new_today: number
+  unassigned: number
+  assigned: number
+  in_progress: number
+  completed_today: number
+  escalated: number
+}
+
+/**
+ * PRD §3 — a department manager's queue KPI row. The 6 same-table counts
+ * collapse into one round trip via conditional subqueries (see the latency
+ * audit — round-trip count matters far more here than query complexity).
+ */
 export async function getManagerQueueKpis(hotelId: string, departmentIds: string[]) {
   const startOfDay = new Date()
   startOfDay.setHours(0, 0, 0, 0)
 
-  const [newToday, unassigned, assigned, inProgress, completedToday, escalated, openWork] = await Promise.all([
-    prisma.requests.count({ where: { hotel_id: hotelId, department_id: { in: departmentIds }, created_at: { gte: startOfDay } } }),
-    prisma.requests.count({ where: { hotel_id: hotelId, department_id: { in: departmentIds }, status: 'pending' } }),
-    prisma.requests.count({ where: { hotel_id: hotelId, department_id: { in: departmentIds }, status: 'assigned' } }),
-    prisma.requests.count({ where: { hotel_id: hotelId, department_id: { in: departmentIds }, status: 'in_progress' } }),
-    prisma.requests.count({
-      where: { hotel_id: hotelId, department_id: { in: departmentIds }, status: 'completed', completed_at: { gte: startOfDay } },
-    }),
-    prisma.requests.count({ where: { hotel_id: hotelId, department_id: { in: departmentIds }, status: 'escalated' } }),
+  const [kpiRows, openWork] = await Promise.all([
+    prisma.$queryRaw<ManagerQueueKpiRow[]>`
+      SELECT
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND department_id = ANY(${departmentIds}::uuid[]) AND created_at >= ${startOfDay})::int AS new_today,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND department_id = ANY(${departmentIds}::uuid[]) AND status = 'pending')::int AS unassigned,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND department_id = ANY(${departmentIds}::uuid[]) AND status = 'assigned')::int AS assigned,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND department_id = ANY(${departmentIds}::uuid[]) AND status = 'in_progress')::int AS in_progress,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND department_id = ANY(${departmentIds}::uuid[]) AND status = 'completed' AND completed_at >= ${startOfDay})::int AS completed_today,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND department_id = ANY(${departmentIds}::uuid[]) AND status = 'escalated')::int AS escalated
+    `,
     prisma.requests.findMany({
       where: { hotel_id: hotelId, department_id: { in: departmentIds }, status: { in: ['pending', 'assigned', 'in_progress'] } },
       select: { priority: true, created_at: true },
     }),
   ])
+  const kpis = kpiRows[0]
 
   const atRisk = openWork.filter((r) => isAtSlaRisk(r.priority, r.created_at)).length
 
-  return { newToday, unassigned, assigned, inProgress, completedToday, delayedOrEscalated: atRisk + escalated }
+  return {
+    newToday: kpis.new_today,
+    unassigned: kpis.unassigned,
+    assigned: kpis.assigned,
+    inProgress: kpis.in_progress,
+    completedToday: kpis.completed_today,
+    delayedOrEscalated: atRisk + kpis.escalated,
+  }
 }
 
 /** The manager's live work list (PRD §3) — everything still open across their department(s). */
@@ -158,22 +180,25 @@ export async function getManagerQueueRequests(hotelId: string, departmentIds: st
   })
 }
 
-/** Staff PRD §5 — the Home dashboard's three tallies, scoped to the caller's own department(s) and own claimed work. */
+type StaffTaskSummaryRow = { new_available: number; my_active: number; completed_today: number }
+
+/**
+ * Staff PRD §5 — the Home dashboard's three tallies, scoped to the caller's
+ * own department(s) and own claimed work. All three counts hit `requests`,
+ * so one round trip with conditional subqueries replaces three.
+ */
 export async function getStaffTaskSummary(hotelId: string, userId: string, departmentIds: string[]) {
   const startOfDay = new Date()
   startOfDay.setHours(0, 0, 0, 0)
 
-  const [newAvailable, myActive, completedToday] = await Promise.all([
-    prisma.requests.count({ where: { hotel_id: hotelId, department_id: { in: departmentIds }, status: 'pending' } }),
-    prisma.requests.count({
-      where: { hotel_id: hotelId, assigned_to: userId, status: { in: ['assigned', 'in_progress'] } },
-    }),
-    prisma.requests.count({
-      where: { hotel_id: hotelId, assigned_to: userId, status: 'completed', completed_at: { gte: startOfDay } },
-    }),
-  ])
+  const [row] = await prisma.$queryRaw<StaffTaskSummaryRow[]>`
+    SELECT
+      (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND department_id = ANY(${departmentIds}::uuid[]) AND status = 'pending')::int AS new_available,
+      (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND assigned_to = ${userId}::uuid AND status IN ('assigned', 'in_progress'))::int AS my_active,
+      (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND assigned_to = ${userId}::uuid AND status = 'completed' AND completed_at >= ${startOfDay})::int AS completed_today
+  `
 
-  return { newAvailable, myActive, completedToday }
+  return { newAvailable: row.new_available, myActive: row.my_active, completedToday: row.completed_today }
 }
 
 /**

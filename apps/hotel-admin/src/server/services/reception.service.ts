@@ -25,18 +25,35 @@ const startOfToday = () => {
   return d
 }
 
-/** Reception PRD §5 — hotel-wide KPI row. Same shape as `getManagerQueueKpis`, without a department filter. */
+type ReceptionKpiRow = {
+  new_today: number
+  unassigned: number
+  in_progress: number
+  escalated: number
+  high_priority: number
+  completed_today: number
+}
+
+/**
+ * Reception PRD §5 — hotel-wide KPI row. Same shape as `getManagerQueueKpis`,
+ * without a department filter. The 6 same-table counts collapse into one
+ * round trip via conditional subqueries — this runs on every 20s dashboard
+ * poll, so cutting round trips here matters more than usual.
+ */
 export async function getReceptionDashboard(hotelId: string, actor: HotelSessionUser) {
   requireReceptionOrAdmin(actor)
   const today = startOfToday()
 
-  const [newToday, unassigned, inProgress, escalated, highPriority, completedToday, openWork, conversations] = await Promise.all([
-    prisma.requests.count({ where: { hotel_id: hotelId, created_at: { gte: today } } }),
-    prisma.requests.count({ where: { hotel_id: hotelId, status: 'pending' } }),
-    prisma.requests.count({ where: { hotel_id: hotelId, status: 'in_progress' } }),
-    prisma.requests.count({ where: { hotel_id: hotelId, status: 'escalated' } }),
-    prisma.requests.count({ where: { hotel_id: hotelId, priority: { in: ['high', 'urgent'] }, status: { in: ['pending', 'assigned', 'in_progress'] } } }),
-    prisma.requests.count({ where: { hotel_id: hotelId, status: 'completed', completed_at: { gte: today } } }),
+  const [kpiRows, openWork, conversations] = await Promise.all([
+    prisma.$queryRaw<ReceptionKpiRow[]>`
+      SELECT
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND created_at >= ${today})::int AS new_today,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND status = 'pending')::int AS unassigned,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND status = 'in_progress')::int AS in_progress,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND status = 'escalated')::int AS escalated,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND priority IN ('high', 'urgent') AND status IN ('pending', 'assigned', 'in_progress'))::int AS high_priority,
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND status = 'completed' AND completed_at >= ${today})::int AS completed_today
+    `,
     prisma.requests.findMany({
       where: { hotel_id: hotelId, status: { in: ['pending', 'assigned', 'in_progress'] } },
       select: { priority: true, created_at: true },
@@ -46,11 +63,21 @@ export async function getReceptionDashboard(hotelId: string, actor: HotelSession
       select: { messages: { orderBy: { sent_at: 'desc' }, take: 1, select: { sender_type: true } } },
     }),
   ])
+  const kpis = kpiRows[0]
 
   const slaAtRisk = openWork.filter((r) => isAtSlaRisk(r.priority, r.created_at)).length
   const unreadMessages = conversations.filter((c) => c.messages[0]?.sender_type === 'guest').length
 
-  return { newToday, unassigned, inProgress, escalated, highPriority, completedToday, slaAtRisk, unreadMessages }
+  return {
+    newToday: kpis.new_today,
+    unassigned: kpis.unassigned,
+    inProgress: kpis.in_progress,
+    escalated: kpis.escalated,
+    highPriority: kpis.high_priority,
+    completedToday: kpis.completed_today,
+    slaAtRisk,
+    unreadMessages,
+  }
 }
 
 /**
