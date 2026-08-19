@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
@@ -37,10 +38,8 @@ export function Sidebar() {
   return (
     <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
       <div className="flex h-16 items-center gap-2.5 border-b border-slate-100 px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
-          RL
-        </div>
-        <span className="text-sm font-semibold text-slate-900">RoomLink Admin</span>
+        <Image src="/logo.png" alt="RoomLink" width={128} height={64} className="h-8 w-auto" priority />
+        <span className="text-sm font-semibold text-slate-900">Super Admin</span>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">

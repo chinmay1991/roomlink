@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Image from 'next/image'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/server/auth'
 import { LoginForm } from './login-form'
@@ -10,14 +11,9 @@ export default async function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white">
-            RL
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">RoomLink</p>
-            <p className="text-xs text-slate-500">Super Admin Portal</p>
-          </div>
+        <div className="mb-8 flex flex-col items-center gap-1 text-center">
+          <Image src="/logo.png" alt="RoomLink" width={200} height={100} className="h-12 w-auto" priority />
+          <p className="text-xs text-slate-500">Super Admin Portal</p>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
