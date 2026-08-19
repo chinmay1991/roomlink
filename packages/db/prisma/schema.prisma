@@ -376,6 +376,10 @@ model requests {
 
   @@index([hotel_id, status], map: "idx_requests_hotel_status")
   @@index([guest_session_id], map: "idx_requests_guest_session")
+  @@index([hotel_id, department_id, status], map: "idx_requests_hotel_department_status")
+  @@index([assigned_to, status], map: "idx_requests_assigned_status")
+  @@index([hotel_id, created_at], map: "idx_requests_hotel_created_at")
+  @@index([hotel_id, status, completed_at], map: "idx_requests_hotel_status_completed_at")
 }
 
 model request_status_history {

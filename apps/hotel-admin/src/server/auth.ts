@@ -26,7 +26,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error(`Too many attempts. Try again in ${Math.ceil((rateLimit.retryAfterSeconds ?? 0) / 60)}m.`)
         }
 
-        const user = await prisma.users.findUnique({ where: { email }, include: { roles: true } })
+        const user = await prisma.users.findUnique({
+          where: { email },
+          include: { roles: true, hotels_users_hotel_idTohotels: { select: { name: true } } },
+        })
         if (!user) {
           recordLoginFailure(email)
           return null
@@ -63,6 +66,7 @@ export const authOptions: NextAuthOptions = {
           roleId: user.role_id,
           roleName: user.roles?.name ?? null,
           hotelId: user.hotel_id,
+          hotelName: user.hotels_users_hotel_idTohotels?.name ?? null,
         }
       },
     }),
@@ -75,6 +79,7 @@ export const authOptions: NextAuthOptions = {
         token.roleId = user.roleId
         token.roleName = user.roleName
         token.hotelId = user.hotelId
+        token.hotelName = user.hotelName
       }
       return token
     },
@@ -86,6 +91,7 @@ export const authOptions: NextAuthOptions = {
         roleId: token.roleId as string,
         roleName: (token.roleName as string | null) ?? null,
         hotelId: token.hotelId as string,
+        hotelName: (token.hotelName as string | null) ?? null,
       }
       return session
     },

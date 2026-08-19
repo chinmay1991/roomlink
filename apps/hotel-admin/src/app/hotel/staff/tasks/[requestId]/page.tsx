@@ -20,13 +20,25 @@ export default async function StaffTaskDetailPage({ params }: { params: { reques
   const hotelId = session.user.hotelId
   const actor = session.user as HotelSessionUser
 
-  const request = await getRequestById(hotelId, params.requestId, actor).catch((error) => {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') return null
-    throw error
-  })
+  // Both independently re-check department scope + request existence (each
+  // is also its own standalone API route, so neither can skip that check) —
+  // but nothing in either depends on the other's result, so run them
+  // concurrently rather than paying two round trips back-to-back. Both throw
+  // the same P2025 in the same not-found/out-of-scope cases (identical where
+  // clause), so normalize each independently and let the request check drive
+  // notFound().
+  const [request, history] = await Promise.all([
+    getRequestById(hotelId, params.requestId, actor).catch((error) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') return null
+      throw error
+    }),
+    getRequestHistory(hotelId, params.requestId, actor).catch((error) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') return []
+      throw error
+    }),
+  ])
   if (!request) notFound()
 
-  const history = await getRequestHistory(hotelId, params.requestId, actor)
   const isMine = request.assigned_to === actor.id
   const isUnclaimed = request.status === 'pending'
 

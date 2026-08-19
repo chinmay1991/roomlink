@@ -53,28 +53,69 @@ export async function getReceptionDashboard(hotelId: string, actor: HotelSession
   return { newToday, unassigned, inProgress, escalated, highPriority, completedToday, slaAtRisk, unreadMessages }
 }
 
-/** Reception PRD §22 — monitoring only, hotel-wide, one row per department. */
+/**
+ * Reception PRD §22 — monitoring only, hotel-wide, one row per department.
+ *
+ * Fires 3 queries total (grouped/aggregated across all departments at once)
+ * instead of 4 per department — a hotel with N enabled departments used to
+ * mean 4N concurrent queries here, fired on every 20s dashboard poll.
+ */
 export async function getDepartmentMonitoring(hotelId: string, actor: HotelSessionUser) {
   requireReceptionOrAdmin(actor)
   const departments = await prisma.departments.findMany({ where: { hotel_id: hotelId, is_enabled: true }, orderBy: { name: 'asc' } })
+  if (departments.length === 0) return []
 
-  return Promise.all(
-    departments.map(async (dept) => {
-      const [newCount, inProgress, completedToday, openWork] = await Promise.all([
-        prisma.requests.count({ where: { hotel_id: hotelId, department_id: dept.department_id, status: 'pending' } }),
-        prisma.requests.count({ where: { hotel_id: hotelId, department_id: dept.department_id, status: 'in_progress' } }),
-        prisma.requests.count({
-          where: { hotel_id: hotelId, department_id: dept.department_id, status: 'completed', completed_at: { gte: startOfToday() } },
-        }),
-        prisma.requests.findMany({
-          where: { hotel_id: hotelId, department_id: dept.department_id, status: { in: ['pending', 'assigned', 'in_progress'] } },
-          select: { priority: true, created_at: true },
-        }),
-      ])
-      const delayed = openWork.filter((r) => isAtSlaRisk(r.priority, r.created_at)).length
-      return { department_id: dept.department_id, name: dept.name, newCount, inProgress, completedToday, delayed }
-    })
-  )
+  const departmentIds = departments.map((d) => d.department_id)
+
+  const [openStatusCounts, completedTodayCounts, openWork] = await Promise.all([
+    prisma.requests.groupBy({
+      by: ['department_id', 'status'],
+      where: { hotel_id: hotelId, department_id: { in: departmentIds }, status: { in: ['pending', 'in_progress'] } },
+      _count: true,
+    }),
+    prisma.requests.groupBy({
+      by: ['department_id'],
+      where: {
+        hotel_id: hotelId,
+        department_id: { in: departmentIds },
+        status: 'completed',
+        completed_at: { gte: startOfToday() },
+      },
+      _count: true,
+    }),
+    prisma.requests.findMany({
+      where: { hotel_id: hotelId, department_id: { in: departmentIds }, status: { in: ['pending', 'assigned', 'in_progress'] } },
+      select: { department_id: true, priority: true, created_at: true },
+    }),
+  ])
+
+  const newCountByDept = new Map<string, number>()
+  const inProgressByDept = new Map<string, number>()
+  for (const row of openStatusCounts) {
+    if (!row.department_id) continue
+    if (row.status === 'pending') newCountByDept.set(row.department_id, row._count)
+    if (row.status === 'in_progress') inProgressByDept.set(row.department_id, row._count)
+  }
+
+  const completedTodayByDept = new Map<string, number>()
+  for (const row of completedTodayCounts) {
+    if (row.department_id) completedTodayByDept.set(row.department_id, row._count)
+  }
+
+  const delayedByDept = new Map<string, number>()
+  for (const r of openWork) {
+    if (!r.department_id || !isAtSlaRisk(r.priority, r.created_at)) continue
+    delayedByDept.set(r.department_id, (delayedByDept.get(r.department_id) ?? 0) + 1)
+  }
+
+  return departments.map((dept) => ({
+    department_id: dept.department_id,
+    name: dept.name,
+    newCount: newCountByDept.get(dept.department_id) ?? 0,
+    inProgress: inProgressByDept.get(dept.department_id) ?? 0,
+    completedToday: completedTodayByDept.get(dept.department_id) ?? 0,
+    delayed: delayedByDept.get(dept.department_id) ?? 0,
+  }))
 }
 
 /** Reception PRD §23 — limited operational view only (no confidential employee info). */

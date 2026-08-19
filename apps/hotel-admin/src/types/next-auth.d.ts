@@ -6,6 +6,7 @@ declare module 'next-auth' {
     roleId: string
     roleName: string | null
     hotelId: string
+    hotelName: string | null
   }
 
   interface Session {
@@ -15,6 +16,7 @@ declare module 'next-auth' {
       roleId: string
       roleName: string | null
       hotelId: string
+      hotelName: string | null
       name?: string | null
       email?: string | null
     }
@@ -28,5 +30,6 @@ declare module 'next-auth/jwt' {
     roleId: string
     roleName: string | null
     hotelId: string
+    hotelName: string | null
   }
 }
