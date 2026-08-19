@@ -3,6 +3,7 @@ import { requireHotelPageSession } from '@/server/require-hotel-page-session'
 import { getReceptionDashboard, getDepartmentMonitoring } from '@/server/services/reception.service'
 import { Card, CardHeader, KpiCard } from '@roomlink/ui'
 import { PollingRefresh } from '@/components/layout/polling-refresh'
+import { ClickableRow } from '@/components/layout/clickable-row'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
 
 /** Reception PRD §5 — hotel-wide operational KPI row + a per-department breakdown (§22). */
@@ -17,18 +18,42 @@ export default async function ReceptionDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PollingRefresh intervalSeconds={20} />
+      <PollingRefresh intervalSeconds={10} />
       <h1 className="text-xl font-semibold text-slate-900">Reception Dashboard</h1>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
-        <KpiCard label="New today" value={String(kpis.newToday)} icon={ClipboardList} />
-        <KpiCard label="Unassigned" value={String(kpis.unassigned)} icon={Clock} tone={kpis.unassigned > 0 ? 'warning' : 'default'} />
-        <KpiCard label="In progress" value={String(kpis.inProgress)} icon={Loader} />
-        <KpiCard label="Escalated" value={String(kpis.escalated)} icon={OctagonAlert} tone={kpis.escalated > 0 ? 'critical' : 'default'} />
+        <KpiCard label="New today" value={String(kpis.newToday)} icon={ClipboardList} href="/hotel/requests" />
+        <KpiCard
+          label="Unassigned"
+          value={String(kpis.unassigned)}
+          icon={Clock}
+          tone={kpis.unassigned > 0 ? 'warning' : 'default'}
+          href="/hotel/requests?status=pending"
+        />
+        <KpiCard label="In progress" value={String(kpis.inProgress)} icon={Loader} href="/hotel/requests?status=in_progress" />
+        <KpiCard
+          label="Escalated"
+          value={String(kpis.escalated)}
+          icon={OctagonAlert}
+          tone={kpis.escalated > 0 ? 'critical' : 'default'}
+          href="/hotel/requests?status=escalated"
+        />
         <KpiCard label="High priority" value={String(kpis.highPriority)} icon={AlertTriangle} tone={kpis.highPriority > 0 ? 'warning' : 'default'} />
-        <KpiCard label="SLA at risk" value={String(kpis.slaAtRisk)} icon={AlertTriangle} tone={kpis.slaAtRisk > 0 ? 'warning' : 'default'} />
-        <KpiCard label="Unread messages" value={String(kpis.unreadMessages)} icon={MessageSquareText} tone={kpis.unreadMessages > 0 ? 'warning' : 'default'} />
-        <KpiCard label="Completed today" value={String(kpis.completedToday)} icon={CheckCircle2} />
+        <KpiCard
+          label="SLA at risk"
+          value={String(kpis.slaAtRisk)}
+          icon={AlertTriangle}
+          tone={kpis.slaAtRisk > 0 ? 'warning' : 'default'}
+          href="/hotel/requests"
+        />
+        <KpiCard
+          label="Unread messages"
+          value={String(kpis.unreadMessages)}
+          icon={MessageSquareText}
+          tone={kpis.unreadMessages > 0 ? 'warning' : 'default'}
+          href="/hotel/reception-desk/conversations"
+        />
+        <KpiCard label="Completed today" value={String(kpis.completedToday)} icon={CheckCircle2} href="/hotel/requests?status=completed" />
       </div>
 
       <Card className="overflow-hidden">
@@ -48,7 +73,7 @@ export default async function ReceptionDashboardPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {departments.map((d) => (
-                <tr key={d.department_id}>
+                <ClickableRow key={d.department_id} href={`/hotel/requests?department=${d.department_id}`}>
                   <td className="px-5 py-2.5 font-medium text-slate-900">{d.name}</td>
                   <td className="px-5 py-2.5 tabular-nums text-slate-600">{d.newCount}</td>
                   <td className="px-5 py-2.5 tabular-nums text-slate-600">{d.inProgress}</td>
@@ -62,7 +87,7 @@ export default async function ReceptionDashboardPage() {
                       <span className="text-slate-400">—</span>
                     )}
                   </td>
-                </tr>
+                </ClickableRow>
               ))}
               {departments.length === 0 && (
                 <tr>

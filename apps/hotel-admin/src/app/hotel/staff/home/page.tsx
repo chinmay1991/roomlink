@@ -4,6 +4,7 @@ import { requireHotelPageSession } from '@/server/require-hotel-page-session'
 import { getStaffDepartmentIds, getStaffTaskSummary, listRequests } from '@/server/services/requests.service'
 import { getDepartmentsByIds } from '@/server/services/departments.service'
 import { Card, KpiCard } from '@roomlink/ui'
+import { PollingRefresh } from '@/components/layout/polling-refresh'
 import { StaffTaskList } from '../staff-task-list'
 import { mapRequestRow } from '../map-request-row'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
@@ -39,12 +40,19 @@ export default async function StaffHomePage() {
 
   return (
     <div className="space-y-5 pb-4">
+      <PollingRefresh intervalSeconds={10} />
       <h1 className="text-xl font-semibold text-slate-900">My Tasks</h1>
 
       <div className="grid grid-cols-3 gap-3">
-        <KpiCard label="New" value={String(summary.newAvailable)} icon={ClipboardList} tone={summary.newAvailable > 0 ? 'warning' : 'default'} />
-        <KpiCard label="In progress" value={String(summary.myActive)} icon={Loader} />
-        <KpiCard label="Completed today" value={String(summary.completedToday)} icon={CheckCircle2} />
+        <KpiCard
+          label="New"
+          value={String(summary.newAvailable)}
+          icon={ClipboardList}
+          tone={summary.newAvailable > 0 ? 'warning' : 'default'}
+          href="/hotel/staff/tasks?status=pending"
+        />
+        <KpiCard label="In progress" value={String(summary.myActive)} icon={Loader} href="/hotel/staff/tasks?status=in_progress" />
+        <KpiCard label="Completed today" value={String(summary.completedToday)} icon={CheckCircle2} href="/hotel/staff/tasks?status=completed" />
       </div>
 
       <StaffTaskList

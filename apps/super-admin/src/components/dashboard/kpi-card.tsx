@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { LucideIcon } from 'lucide-react'
 import { Card, CardBody } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -7,14 +8,16 @@ export function KpiCard({
   value,
   icon: Icon,
   tone = 'default',
+  href,
 }: {
   label: string
   value: string
   icon: LucideIcon
   tone?: 'default' | 'warning' | 'critical'
+  href?: string
 }) {
-  return (
-    <Card>
+  const card = (
+    <Card className={cn(href && 'transition-shadow hover:shadow-md hover:border-brand-300')}>
       <CardBody className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
@@ -39,5 +42,13 @@ export function KpiCard({
         </div>
       </CardBody>
     </Card>
+  )
+
+  if (!href) return card
+
+  return (
+    <Link href={href} className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+      {card}
+    </Link>
   )
 }

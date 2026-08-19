@@ -4,6 +4,7 @@ import { getPlatformKpis, getAlerts } from '@/server/services/analytics.service'
 import { getMrrArr, getActiveHotelAdminCount } from '@/server/services/billing.service'
 import { KpiCard } from '@/components/dashboard/kpi-card'
 import { Card } from '@/components/ui/card'
+import { PollingRefresh } from '@/components/layout/polling-refresh'
 
 const currency = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
 
@@ -17,25 +18,27 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <PollingRefresh intervalSeconds={10} />
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
         <p className="text-sm text-slate-500">Real-time overview of the RoomLink platform.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total Hotels" value={String(kpis.totalHotels)} icon={Building2} />
-        <KpiCard label="Active Hotels" value={String(kpis.activeHotels)} icon={Building2} />
-        <KpiCard label="Hotels in Trial" value={String(kpis.trialHotels)} icon={Building2} />
-        <KpiCard label="Hotels Onboarding" value={String(kpis.onboardingHotels)} icon={Building2} />
+        <KpiCard label="Total Hotels" value={String(kpis.totalHotels)} icon={Building2} href="/hotels" />
+        <KpiCard label="Active Hotels" value={String(kpis.activeHotels)} icon={Building2} href="/hotels?status=active" />
+        <KpiCard label="Hotels in Trial" value={String(kpis.trialHotels)} icon={Building2} href="/hotels?status=trial" />
+        <KpiCard label="Hotels Onboarding" value={String(kpis.onboardingHotels)} icon={Building2} href="/hotels?status=onboarding" />
         <KpiCard label="Total Rooms" value={String(kpis.totalRooms)} icon={DoorOpen} />
-        <KpiCard label="Monthly Recurring Revenue" value={currency.format(mrr)} icon={TrendingUp} />
-        <KpiCard label="Annual Recurring Revenue" value={currency.format(arr)} icon={TrendingUp} />
-        <KpiCard label="Active Hotel Admins" value={String(activeHotelAdmins)} icon={Users} />
+        <KpiCard label="Monthly Recurring Revenue" value={currency.format(mrr)} icon={TrendingUp} href="/subscriptions?status=active" />
+        <KpiCard label="Annual Recurring Revenue" value={currency.format(arr)} icon={TrendingUp} href="/subscriptions?status=active" />
+        <KpiCard label="Active Hotel Admins" value={String(activeHotelAdmins)} icon={Users} href="/users?status=active" />
         <KpiCard
           label="Open Support Tickets"
           value={String(kpis.openSupportTickets)}
           icon={LifeBuoy}
           tone={kpis.openSupportTickets > 0 ? 'warning' : 'default'}
+          href="/support?status=__open__"
         />
         <KpiCard
           label="Failed Payments"

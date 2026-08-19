@@ -53,6 +53,8 @@ export function StaffTaskList({
   showFilters = true,
   limit,
   emptyMessage = 'No tasks right now.',
+  initialStatusFilter = '',
+  initialDeptFilter = '',
 }: {
   requests: StaffRequestRow[]
   departments: { department_id: string; name: string }[]
@@ -60,11 +62,13 @@ export function StaffTaskList({
   showFilters?: boolean
   limit?: number
   emptyMessage?: string
+  initialStatusFilter?: string
+  initialDeptFilter?: string
 }) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState('')
-  const [deptFilter, setDeptFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter)
+  const [deptFilter, setDeptFilter] = useState(initialDeptFilter)
   const [completeFor, setCompleteFor] = useState<string | null>(null)
   const [completeNote, setCompleteNote] = useState('')
   const [error, setError] = useState<string | null>(null)

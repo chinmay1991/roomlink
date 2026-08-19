@@ -42,6 +42,7 @@ export async function getDashboardData(hotelId: string) {
   const kpiRow = kpiRows[0]
 
   const departmentSummary = departments.map((d) => ({
+    departmentId: d.department_id,
     name: d.name,
     pending: d.requests.filter((r) => r.status === 'pending' || r.status === 'assigned').length,
     inProgress: d.requests.filter((r) => r.status === 'in_progress').length,

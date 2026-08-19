@@ -2,12 +2,17 @@ import { requireHotelPageSession } from '@/server/require-hotel-page-session'
 import { getStaffDepartmentIds, listRequests } from '@/server/services/requests.service'
 import { getDepartmentsByIds } from '@/server/services/departments.service'
 import { Card } from '@roomlink/ui'
+import { PollingRefresh } from '@/components/layout/polling-refresh'
 import { StaffTaskList } from '../staff-task-list'
 import { mapRequestRow } from '../map-request-row'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
 
 /** Staff PRD §7 — the full, filterable task board (status / department / priority chips, room search not yet needed at pilot scale). */
-export default async function StaffTasksPage() {
+export default async function StaffTasksPage({
+  searchParams,
+}: {
+  searchParams: { status?: string; department?: string }
+}) {
   const session = await requireHotelPageSession()
   const hotelId = session.user.hotelId
   const actor = session.user as HotelSessionUser
@@ -34,12 +39,16 @@ export default async function StaffTasksPage() {
 
   return (
     <div className="space-y-5">
+      <PollingRefresh intervalSeconds={10} />
       <h1 className="text-xl font-semibold text-slate-900">Tasks</h1>
       <StaffTaskList
+        key={`${searchParams.status ?? ''}|${searchParams.department ?? ''}`}
         requests={requests.map(mapRequestRow)}
         departments={departments}
         currentUserId={actor.id}
         emptyMessage="No tasks match these filters."
+        initialStatusFilter={searchParams.status ?? ''}
+        initialDeptFilter={searchParams.department ?? ''}
       />
     </div>
   )

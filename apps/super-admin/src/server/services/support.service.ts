@@ -8,7 +8,11 @@ import type { SessionUser } from '@/server/rbac'
 export async function listTickets(filters: { status?: string; category?: string }) {
   return prisma.support_tickets.findMany({
     where: {
-      ...(filters.status ? { status: filters.status as ticket_status } : {}),
+      ...(filters.status === '__open__'
+        ? { status: { notIn: ['resolved', 'closed'] } }
+        : filters.status
+          ? { status: filters.status as ticket_status }
+          : {}),
       ...(filters.category ? { category: filters.category } : {}),
     },
     orderBy: { created_at: 'desc' },

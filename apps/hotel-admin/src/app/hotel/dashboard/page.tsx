@@ -4,6 +4,8 @@ import { requireHotelPageSession } from '@/server/require-hotel-page-session'
 import { getDashboardData } from '@/server/services/hotel-dashboard.service'
 import { getHotelAlerts } from '@/server/services/alerts.service'
 import { Card, CardHeader, CardBody, KpiCard } from '@roomlink/ui'
+import { PollingRefresh } from '@/components/layout/polling-refresh'
+import { DepartmentRow } from './department-row'
 
 export default async function DashboardPage() {
   const session = await requireHotelPageSession()
@@ -12,16 +14,23 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <PollingRefresh intervalSeconds={20} />
       <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
-        <KpiCard label="Today's requests" value={String(kpis.todaysRequests)} icon={ClipboardList} />
-        <KpiCard label="Pending" value={String(kpis.pending)} icon={Clock} tone={kpis.pending > 0 ? 'warning' : 'default'} />
-        <KpiCard label="In progress" value={String(kpis.inProgress)} icon={Loader} />
-        <KpiCard label="Completed today" value={String(kpis.completed)} icon={CheckCircle2} />
-        <KpiCard label="Active rooms" value={String(kpis.activeRooms)} icon={BedDouble} />
-        <KpiCard label="Active staff" value={String(kpis.activeStaff)} icon={Users} />
-        <KpiCard label="Departments" value={String(kpis.departmentCount)} icon={Building2} />
+        <KpiCard label="Today's requests" value={String(kpis.todaysRequests)} icon={ClipboardList} href="/hotel/requests" />
+        <KpiCard
+          label="Pending"
+          value={String(kpis.pending)}
+          icon={Clock}
+          tone={kpis.pending > 0 ? 'warning' : 'default'}
+          href="/hotel/requests?status=__pending_or_assigned__"
+        />
+        <KpiCard label="In progress" value={String(kpis.inProgress)} icon={Loader} href="/hotel/requests?status=in_progress" />
+        <KpiCard label="Completed today" value={String(kpis.completed)} icon={CheckCircle2} href="/hotel/requests?status=completed" />
+        <KpiCard label="Active rooms" value={String(kpis.activeRooms)} icon={BedDouble} href="/hotel/rooms" />
+        <KpiCard label="Active staff" value={String(kpis.activeStaff)} icon={Users} href="/hotel/staff" />
+        <KpiCard label="Departments" value={String(kpis.departmentCount)} icon={Building2} href="/hotel/departments" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -41,12 +50,14 @@ export default async function DashboardPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {departmentSummary.map((d) => (
-                  <tr key={d.name}>
-                    <td className="px-5 py-2.5 font-medium text-slate-900">{d.name}</td>
-                    <td className="px-5 py-2.5 tabular-nums text-slate-600">{d.pending}</td>
-                    <td className="px-5 py-2.5 tabular-nums text-slate-600">{d.inProgress}</td>
-                    <td className="px-5 py-2.5 tabular-nums text-slate-600">{d.completed}</td>
-                  </tr>
+                  <DepartmentRow
+                    key={d.departmentId}
+                    departmentId={d.departmentId}
+                    name={d.name}
+                    pending={d.pending}
+                    inProgress={d.inProgress}
+                    completed={d.completed}
+                  />
                 ))}
                 {departmentSummary.length === 0 && (
                   <tr>
@@ -83,6 +94,8 @@ export default async function DashboardPage() {
           </CardBody>
         </Card>
       </div>
+
+      <p className="text-xs text-slate-400">Updates automatically every 20 seconds.</p>
     </div>
   )
 }

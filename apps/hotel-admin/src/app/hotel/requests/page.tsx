@@ -6,7 +6,11 @@ import { SectionTabs } from '@/components/layout/section-tabs'
 import { RequestsBoard } from './requests-board'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
 
-export default async function RequestsPage() {
+export default async function RequestsPage({
+  searchParams,
+}: {
+  searchParams: { status?: string; department?: string; q?: string }
+}) {
   const session = await requireHotelPageSession()
   const hotelId = session.user.hotelId
   const actor = session.user as HotelSessionUser
@@ -35,6 +39,9 @@ export default async function RequestsPage() {
         }))}
         departments={departments.filter((d) => d.is_enabled)}
         rooms={rooms.filter((r) => r.status === 'active').map((r) => ({ room_id: r.room_id, room_number: r.room_number }))}
+        initialStatusFilter={searchParams.status ?? ''}
+        initialDeptFilter={searchParams.department ?? ''}
+        initialSearch={searchParams.q ?? ''}
       />
     </div>
   )

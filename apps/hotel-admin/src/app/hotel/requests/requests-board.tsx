@@ -61,20 +61,26 @@ export function RequestsBoard({
   departments,
   rooms,
   canCreateRequests = true,
+  initialStatusFilter = '',
+  initialDeptFilter = '',
+  initialSearch = '',
 }: {
   requests: RequestRow[]
   departments: Department[]
   rooms: Room[]
   canCreateRequests?: boolean
+  initialStatusFilter?: string
+  initialDeptFilter?: string
+  initialSearch?: string
 }) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [assigneesFor, setAssigneesFor] = useState<string | null>(null)
   const [assigneeOptions, setAssigneeOptions] = useState<{ user_id: string; full_name: string; isManager: boolean }[]>([])
-  const [statusFilter, setStatusFilter] = useState('')
-  const [deptFilter, setDeptFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter)
+  const [deptFilter, setDeptFilter] = useState(initialDeptFilter)
   const [sortBy, setSortBy] = useState<SortBy>('sla')
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
 
   // Create-request form state
   const [newRoomId, setNewRoomId] = useState('')
@@ -204,13 +210,20 @@ export function RequestsBoard({
     requests.filter((r) => {
       if (statusFilter === '__unassigned__') {
         if (r.users) return false
+      } else if (statusFilter === '__pending_or_assigned__') {
+        if (r.status !== 'pending' && r.status !== 'assigned') return false
+      } else if (statusFilter === '__delayed_or_escalated__') {
+        if (r.status !== 'escalated' && !isAtSlaRisk(r)) return false
       } else if (statusFilter && r.status !== statusFilter) {
         return false
       }
       if (deptFilter && r.departments?.department_id !== deptFilter) return false
       if (search.trim()) {
         const q = search.trim().toLowerCase()
-        const haystack = [r.rooms?.room_number, r.guests?.full_name, r.request_id, r.request_type].filter(Boolean).join(' ').toLowerCase()
+        const haystack = [r.rooms?.room_number, r.guests?.full_name, r.request_id, r.request_type, r.users?.full_name]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
         if (!haystack.includes(q)) return false
       }
       return true

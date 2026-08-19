@@ -1,6 +1,8 @@
 import { requireHotelPageSession } from '@/server/require-hotel-page-session'
 import { getRoomOverview } from '@/server/services/reception.service'
 import { Card } from '@roomlink/ui'
+import { PollingRefresh } from '@/components/layout/polling-refresh'
+import { ClickableRow } from '@/components/layout/clickable-row'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
 
 /** Reception PRD §21 — room-level operational overview. Not a PMS. */
@@ -11,6 +13,7 @@ export default async function RoomsOverviewPage() {
 
   return (
     <div className="space-y-5">
+      <PollingRefresh intervalSeconds={10} />
       <h1 className="text-xl font-semibold text-slate-900">Rooms</h1>
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
@@ -26,7 +29,7 @@ export default async function RoomsOverviewPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rooms.map((r) => (
-                <tr key={r.room_id}>
+                <ClickableRow key={r.room_id} href={`/hotel/requests?q=${encodeURIComponent(r.room_number)}`}>
                   <td className="px-5 py-2.5 font-medium text-slate-900">{r.room_number}</td>
                   <td className="px-5 py-2.5 text-slate-600">{r.roomType ?? '—'}</td>
                   <td className="px-5 py-2.5">
@@ -42,7 +45,7 @@ export default async function RoomsOverviewPage() {
                   </td>
                   <td className="px-5 py-2.5 text-slate-600">{r.activeGuestSessionId ? 'Active' : '—'}</td>
                   <td className="px-5 py-2.5 tabular-nums text-slate-600">{r.openRequests}</td>
-                </tr>
+                </ClickableRow>
               ))}
               {rooms.length === 0 && (
                 <tr>
