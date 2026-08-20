@@ -1,0 +1,23 @@
+{
+  "name": "@roomlink/hotel-admin-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor shell that wraps apps/hotel-admin for iOS/Android store distribution. Ships no app code of its own — see capacitor.config.ts.",
+  "scripts": {
+    "add:ios": "cap add ios",
+    "add:android": "cap add android",
+    "sync": "cap sync",
+    "open:ios": "cap open ios",
+    "open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/ios": "^6.2.1",
+    "@capacitor/push-notifications": "^6.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.1"
+  }
+}

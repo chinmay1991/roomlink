@@ -4,6 +4,7 @@ import { ForbiddenError } from '@/server/hotel-rbac'
 import { REQUEST_TRANSITIONS, canTransition } from '@/server/transitions'
 import { isAtSlaRisk } from '@/server/sla'
 import { InvalidTransitionError } from '@/server/errors'
+import { sendPushToRecipient } from '@/server/push'
 import type {
   CreateRequestInput,
   EscalateRequestInput,
@@ -444,7 +445,21 @@ export async function escalateRequest(hotelId: string, requestId: string, input:
     beforeState: { status: request.status },
   })
 
-  return prisma.requests.findUniqueOrThrow({ where: { request_id: requestId }, include: REQUEST_INCLUDE })
+  const full = await prisma.requests.findUniqueOrThrow({ where: { request_id: requestId }, include: REQUEST_INCLUDE })
+
+  // Best-effort: a notification failure must never fail the escalation
+  // itself, which is the actual action the caller asked for.
+  try {
+    await sendPushToRecipient(hotelId, input.recipient, {
+      title: input.urgency === 'urgent' ? 'Request escalated — urgent' : 'Request escalated',
+      body: `${full.request_type} — Room ${full.rooms?.room_number ?? '?'}`,
+      url: '/hotel/requests',
+    })
+  } catch (error) {
+    console.error('[push] failed to send escalation notification', error)
+  }
+
+  return full
 }
 
 /**

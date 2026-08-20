@@ -72,6 +72,20 @@ model departments {
   @@unique([hotel_id, name])
 }
 
+model device_tokens {
+  device_token_id String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotel_id        String   @db.Uuid
+  user_id         String   @db.Uuid
+  platform        String   @db.VarChar(10)
+  token           String   @unique @db.VarChar(500)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+  hotels          hotels   @relation(fields: [hotel_id], references: [hotel_id], onDelete: Cascade, onUpdate: NoAction)
+  users           users    @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([hotel_id, user_id], map: "idx_device_tokens_hotel_user")
+}
+
 model guests {
   guest_id       String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   hotel_id       String           @db.Uuid
@@ -155,6 +169,7 @@ model hotels {
   announcements                               announcements[]
   conversations                               conversations[]
   departments                                 departments[]
+  device_tokens                               device_tokens[]
   guests                                      guests[]
   guest_sessions                              guest_sessions[]
   hotel_settings                              hotel_settings?
@@ -561,6 +576,7 @@ model users {
   updated_at                                                          DateTime                 @default(now()) @db.Timestamptz(6)
   announcements                                                       announcements[]
   conversations                                                       conversations[]
+  device_tokens                                                       device_tokens[]
   hotels_hotels_implementation_owner_idTousers                        hotels[]                 @relation("hotels_implementation_owner_idTousers")
   impersonation_sessions_impersonation_sessions_hotel_admin_idTousers impersonation_sessions[] @relation("impersonation_sessions_hotel_admin_idTousers")
   impersonation_sessions_impersonation_sessions_super_admin_idTousers impersonation_sessions[] @relation("impersonation_sessions_super_admin_idTousers")

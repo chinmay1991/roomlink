@@ -1,4 +1,5 @@
 import { MobileBottomNav } from './mobile-bottom-nav'
+import { PushRegistration } from './push-registration'
 
 /**
  * Native-app-only chrome — mounted from hotel/layout.tsx exclusively when
@@ -9,6 +10,7 @@ import { MobileBottomNav } from './mobile-bottom-nav'
 export function MobileShell({ roleName, children }: { roleName: string | null; children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
+      <PushRegistration />
       <main className="flex-1 px-4 pb-24 pt-[calc(env(safe-area-inset-top)+1rem)]">{children}</main>
       <MobileBottomNav roleName={roleName} />
     </div>

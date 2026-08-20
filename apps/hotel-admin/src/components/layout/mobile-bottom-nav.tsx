@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MoreHorizontal } from 'lucide-react'
+import { signOut } from 'next-auth/react'
+import { MoreHorizontal, LogOut } from 'lucide-react'
 import { Modal, cn } from '@roomlink/ui'
 import { mobileNavItemsForRole, type MobileNavItem } from './mobile-nav-items'
 
@@ -79,6 +80,23 @@ export function MobileBottomNav({ roleName }: { roleName: string | null }) {
                 </Link>
               </li>
             ))}
+            {/*
+              MobileShell has no Topbar (that's where sign-out lives for
+              every role except Department Staff, whose bottom nav points at
+              a dedicated Profile page with its own sign-out button instead).
+              This sheet is the only reachable surface left for the other
+              three roles, so it's sign-out's home in the native app.
+            */}
+            <li>
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                className="flex w-full items-center gap-3 px-5 py-3 text-left text-sm text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="h-4 w-4" aria-hidden />
+                Sign out
+              </button>
+            </li>
           </ul>
         </Modal>
       )}
