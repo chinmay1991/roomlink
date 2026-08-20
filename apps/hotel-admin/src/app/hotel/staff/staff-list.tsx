@@ -16,7 +16,15 @@ type StaffRow = {
   departments_managed: Department[]
 }
 
-export function StaffList({ staff, departments }: { staff: StaffRow[]; departments: Department[] }) {
+export function StaffList({
+  staff,
+  departments,
+  isNative = false,
+}: {
+  staff: StaffRow[]
+  departments: Department[]
+  isNative?: boolean
+}) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editingDeptsFor, setEditingDeptsFor] = useState<string | null>(null)
@@ -53,6 +61,112 @@ export function StaffList({ staff, departments }: { staff: StaffRow[]; departmen
     setBusyId(null)
     setEditingDeptsFor(null)
     router.refresh()
+  }
+
+  const departmentEditor = (row: StaffRow) => (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {departments.map((d) => (
+          <label key={d.department_id} className="flex items-center gap-1.5 text-xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={selected.has(d.department_id)}
+              onChange={(e) => {
+                const next = new Set(selected)
+                if (e.target.checked) next.add(d.department_id)
+                else next.delete(d.department_id)
+                setSelected(next)
+              }}
+            />
+            {d.name}
+          </label>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Button className="h-7 px-2 text-xs" disabled={busyId === row.user_id} onClick={() => saveDepartments(row.user_id)}>
+          Save
+        </Button>
+        <Button variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingDeptsFor(null)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+
+  // Native-only stacked-card layout — see the mobile-app plan's isolation
+  // mechanism. Reuses every handler/state above (toggleStatus, resetAccess,
+  // department editing) so business logic never forks between browser and
+  // native; only the layout does. Browsers always take the unchanged table
+  // path below.
+  if (isNative) {
+    return (
+      <div className="space-y-3">
+        {lastTempPassword && (
+          <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            New temporary password for {lastTempPassword.name}: <code className="font-mono">{lastTempPassword.password}</code>
+          </div>
+        )}
+        <Card className="overflow-hidden">
+          {staff.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-slate-500">No staff yet.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {staff.map((row) => (
+                <li key={row.user_id} className="space-y-2.5 px-4 py-3.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-slate-900">{row.full_name}</p>
+                      <p className="text-xs text-slate-500">{row.email}</p>
+                      {row.employee_id && <p className="text-xs text-slate-400">ID: {row.employee_id}</p>}
+                    </div>
+                    <StatusBadge status={row.status} />
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    {row.roles.name}
+                    {row.departments_managed.length > 0 && (
+                      <span className="text-slate-400"> · Manages {row.departments_managed.map((d) => d.name).join(', ')}</span>
+                    )}
+                  </p>
+                  {editingDeptsFor === row.user_id ? (
+                    departmentEditor(row)
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {row.user_departments.length === 0 && <span className="text-xs text-slate-400">No departments</span>}
+                      {row.user_departments.map((ud) => (
+                        <span key={ud.departments.department_id} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                          {ud.departments.name}
+                        </span>
+                      ))}
+                      <button onClick={() => openDeptEditor(row)} className="text-xs text-brand-600 hover:text-brand-700">
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      className="h-8 flex-1 px-3 text-xs"
+                      disabled={busyId === row.user_id}
+                      onClick={() => resetAccess(row.user_id, row.full_name)}
+                    >
+                      Reset access
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="h-8 flex-1 px-3 text-xs"
+                      disabled={busyId === row.user_id}
+                      onClick={() => toggleStatus(row.user_id)}
+                    >
+                      {row.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+    )
   }
 
   return (

@@ -1,7 +1,9 @@
 import { requireHotelPageSession } from '@/server/require-hotel-page-session'
+import { isNativeClient } from '@/server/is-native-client'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
 import { StaffBottomNav } from '@/components/layout/staff-bottom-nav'
+import { MobileShell } from '@/components/layout/mobile-shell'
 
 export default async function HotelPortalLayout({ children }: { children: React.ReactNode }) {
   // hotelName comes off the session (set at login), not a fresh DB lookup —
@@ -11,6 +13,15 @@ export default async function HotelPortalLayout({ children }: { children: React.
   // static for the life of the session (same tradeoff already made for
   // hotelId/roleName/userType elsewhere in the JWT).
   const session = await requireHotelPageSession()
+
+  // Mobile-app plan's isolation mechanism: isNativeClient() is true only
+  // inside the Capacitor-wrapped native app's WebView (or the local
+  // FORCE_NATIVE_SHELL dev override), never for a real browser — so this
+  // branch is provably inert for every existing browser/PWA request, which
+  // keeps taking the unchanged path below.
+  if (isNativeClient()) {
+    return <MobileShell roleName={session.user.roleName}>{children}</MobileShell>
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">

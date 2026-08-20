@@ -1,15 +1,18 @@
 import Link from 'next/link'
 import { ClipboardList, Clock, Loader, CheckCircle2, BedDouble, Users, Building2, AlertTriangle, OctagonAlert } from 'lucide-react'
 import { requireHotelPageSession } from '@/server/require-hotel-page-session'
+import { isNativeClient } from '@/server/is-native-client'
 import { getDashboardData } from '@/server/services/hotel-dashboard.service'
 import { getHotelAlerts } from '@/server/services/alerts.service'
 import { Card, CardHeader, CardBody, KpiCard } from '@roomlink/ui'
 import { PollingRefresh } from '@/components/layout/polling-refresh'
 import { DepartmentRow } from './department-row'
+import { DepartmentSummaryCards } from './department-summary-cards'
 
 export default async function DashboardPage() {
   const session = await requireHotelPageSession()
   const hotelId = session.user.hotelId
+  const isNative = isNativeClient()
   const [{ kpis, departmentSummary }, alerts] = await Promise.all([getDashboardData(hotelId), getHotelAlerts(hotelId)])
 
   return (
@@ -38,37 +41,43 @@ export default async function DashboardPage() {
           <CardHeader>
             <h2 className="text-sm font-semibold text-slate-900">Department summary</h2>
           </CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-5 py-2.5 font-medium">Department</th>
-                  <th className="px-5 py-2.5 font-medium">Pending</th>
-                  <th className="px-5 py-2.5 font-medium">In progress</th>
-                  <th className="px-5 py-2.5 font-medium">Completed</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {departmentSummary.map((d) => (
-                  <DepartmentRow
-                    key={d.departmentId}
-                    departmentId={d.departmentId}
-                    name={d.name}
-                    pending={d.pending}
-                    inProgress={d.inProgress}
-                    completed={d.completed}
-                  />
-                ))}
-                {departmentSummary.length === 0 && (
+          {isNative ? (
+            <CardBody>
+              <DepartmentSummaryCards departments={departmentSummary} />
+            </CardBody>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">
-                      No departments enabled yet.
-                    </td>
+                    <th className="px-5 py-2.5 font-medium">Department</th>
+                    <th className="px-5 py-2.5 font-medium">Pending</th>
+                    <th className="px-5 py-2.5 font-medium">In progress</th>
+                    <th className="px-5 py-2.5 font-medium">Completed</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {departmentSummary.map((d) => (
+                    <DepartmentRow
+                      key={d.departmentId}
+                      departmentId={d.departmentId}
+                      name={d.name}
+                      pending={d.pending}
+                      inProgress={d.inProgress}
+                      completed={d.completed}
+                    />
+                  ))}
+                  {departmentSummary.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">
+                        No departments enabled yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
 
         <Card className="overflow-hidden">

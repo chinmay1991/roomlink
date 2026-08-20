@@ -1,4 +1,5 @@
 import { requireHotelPageSession } from '@/server/require-hotel-page-session'
+import { isNativeClient } from '@/server/is-native-client'
 import { listStaff } from '@/server/services/staff.service'
 import { listDepartments } from '@/server/services/departments.service'
 import { SectionTabs } from '@/components/layout/section-tabs'
@@ -15,7 +16,7 @@ export default async function StaffPage() {
     <div className="space-y-5">
       <SectionTabs section="people" />
       <h1 className="text-xl font-semibold text-slate-900">Staff</h1>
-      <StaffList staff={staff} departments={enabledDepartments} />
+      <StaffList staff={staff} departments={enabledDepartments} isNative={isNativeClient()} />
       <CreateStaffForm departments={enabledDepartments} />
     </div>
   )

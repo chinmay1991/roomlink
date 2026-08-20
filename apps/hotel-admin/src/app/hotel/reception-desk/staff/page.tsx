@@ -1,8 +1,10 @@
 import { requireHotelPageSession } from '@/server/require-hotel-page-session'
+import { isNativeClient } from '@/server/is-native-client'
 import { getStaffStatus } from '@/server/services/reception.service'
 import { Card, StatusBadge } from '@roomlink/ui'
 import { PollingRefresh } from '@/components/layout/polling-refresh'
 import { ClickableRow } from '@/components/layout/clickable-row'
+import { StaffStatusCards } from './staff-status-cards'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
 
 /** Reception PRD §23 — limited operational staff view. No create/edit/delete capability here. */
@@ -17,6 +19,9 @@ export default async function StaffStatusPage() {
       <h1 className="text-xl font-semibold text-slate-900">Staff Status</h1>
 
       <Card className="overflow-hidden">
+        {isNativeClient() ? (
+          <StaffStatusCards staff={staff} />
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -48,6 +53,7 @@ export default async function StaffStatusPage() {
             </tbody>
           </table>
         </div>
+        )}
       </Card>
     </div>
   )

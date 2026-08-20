@@ -13,7 +13,7 @@ type Room = {
   qr_codes: { qr_code_id: string; is_active: boolean }[]
 }
 
-export function RoomList({ rooms }: { rooms: Room[] }) {
+export function RoomList({ rooms, isNative = false }: { rooms: Room[]; isNative?: boolean }) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -26,6 +26,55 @@ export function RoomList({ rooms }: { rooms: Room[] }) {
     })
     setBusyId(null)
     router.refresh()
+  }
+
+  const statusSelect = (room: Room, className: string) => (
+    <Select className={className} value={room.status} disabled={busyId === room.room_id} onChange={(e) => setStatus(room.room_id, e.target.value)}>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+      <option value="maintenance">Maintenance</option>
+    </Select>
+  )
+
+  // Native-only stacked-card layout — see the mobile-app plan's isolation
+  // mechanism. Same data and the same setStatus handler as the desktop
+  // table below; browsers always take the unchanged table path.
+  if (isNative) {
+    return (
+      <Card className="overflow-hidden">
+        {rooms.length === 0 ? (
+          <p className="px-5 py-10 text-center text-sm text-slate-500">No rooms yet.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {rooms.map((room) => (
+              <li key={room.room_id} className="space-y-2 px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-slate-900">
+                      Room {room.room_number}
+                      {room.floor && <span className="font-normal text-slate-500"> · Floor {room.floor}</span>}
+                    </p>
+                    <p className="text-xs text-slate-500">{room.room_types?.name ?? 'No room type'}</p>
+                  </div>
+                  <StatusBadge status={room.status} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-500">
+                    QR:{' '}
+                    {room.qr_codes.some((q) => q.is_active) ? (
+                      <span className="text-emerald-600">Active</span>
+                    ) : (
+                      <span className="text-slate-400">Not generated</span>
+                    )}
+                  </span>
+                  {statusSelect(room, 'h-9 max-w-[150px] text-xs')}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    )
   }
 
   return (

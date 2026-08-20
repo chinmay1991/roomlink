@@ -1,8 +1,10 @@
 import { requireHotelPageSession } from '@/server/require-hotel-page-session'
+import { isNativeClient } from '@/server/is-native-client'
 import { getRoomOverview } from '@/server/services/reception.service'
 import { Card } from '@roomlink/ui'
 import { PollingRefresh } from '@/components/layout/polling-refresh'
 import { ClickableRow } from '@/components/layout/clickable-row'
+import { RoomOverviewCards } from './room-overview-cards'
 import type { HotelSessionUser } from '@/server/require-hotel-session'
 
 /** Reception PRD §21 — room-level operational overview. Not a PMS. */
@@ -16,6 +18,9 @@ export default async function RoomsOverviewPage() {
       <PollingRefresh intervalSeconds={10} />
       <h1 className="text-xl font-semibold text-slate-900">Rooms</h1>
       <Card className="overflow-hidden">
+        {isNativeClient() ? (
+          <RoomOverviewCards rooms={rooms} />
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -57,6 +62,7 @@ export default async function RoomsOverviewPage() {
             </tbody>
           </table>
         </div>
+        )}
       </Card>
     </div>
   )
