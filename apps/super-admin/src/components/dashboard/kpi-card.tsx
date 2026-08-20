@@ -17,8 +17,8 @@ export function KpiCard({
   href?: string
 }) {
   const card = (
-    <Card className={cn(href && 'transition-shadow hover:shadow-md hover:border-brand-300')}>
-      <CardBody className="flex items-start justify-between">
+    <Card className={cn('h-full', href && 'transition-shadow hover:shadow-md hover:border-brand-300')}>
+      <CardBody className="flex h-full items-start justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
           <p
@@ -47,7 +47,7 @@ export function KpiCard({
   if (!href) return card
 
   return (
-    <Link href={href} className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+    <Link href={href} className="block h-full rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
       {card}
     </Link>
   )
