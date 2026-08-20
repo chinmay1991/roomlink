@@ -11,9 +11,14 @@ function timeToDate(hhmm: string) {
   return new Date(`1970-01-01T${hhmm}:00Z`)
 }
 
-export function dateToTimeString(date: Date | null | undefined): string {
+export function dateToTimeString(date: Date | string | null | undefined): string {
   if (!date) return ''
-  return date.toISOString().slice(11, 16)
+  // getHotelProfile is wrapped in unstable_cache, which round-trips its
+  // return value through JSON — Prisma's Date fields come back as plain
+  // ISO strings on a cache hit (though still real Dates on a cache miss),
+  // so this has to handle both.
+  const d = date instanceof Date ? date : new Date(date)
+  return d.toISOString().slice(11, 16)
 }
 
 /**
