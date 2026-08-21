@@ -14,6 +14,7 @@ export const MODULES = [
   'integrations',
   'settings',
   'audit_logs',
+  'departments',
 ] as const
 
 export type Module = (typeof MODULES)[number]

@@ -43,7 +43,7 @@ export function CreateRoomForm() {
             <Input id="roomNumber" {...register('roomNumber')} />
           </FormField>
           <FormField label="Floor" htmlFor="floor" error={errors.floor?.message}>
-            <Input id="floor" {...register('floor')} />
+            <Input id="floor" type="number" min={0} max={100} step={1} placeholder="0" {...register('floor')} />
           </FormField>
           <FormField label="Room type" htmlFor="roomType" error={errors.roomType?.message}>
             <Input id="roomType" placeholder="Deluxe" {...register('roomType')} />

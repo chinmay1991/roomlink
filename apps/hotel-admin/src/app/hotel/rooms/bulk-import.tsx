@@ -51,14 +51,14 @@ export function BulkImport() {
       </CardHeader>
       <CardBody className="space-y-3">
         <p className="text-xs text-slate-500">
-          One room per line: <code>room_number,floor,room_type</code> — e.g. <code>101,Floor 1,Deluxe</code>. Paste
-          directly from a CSV export.
+          One room per line: <code>room_number,floor,room_type</code> — floor is a number from 0 (ground) to 100,
+          e.g. <code>101,1,Deluxe</code>. Paste directly from a CSV export.
         </p>
         {result && <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{result}</div>}
         <textarea
           rows={6}
           className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          placeholder={'101,Floor 1,Deluxe\n102,Floor 1,Deluxe\n201,Floor 2,Premium'}
+          placeholder={'101,1,Deluxe\n102,1,Deluxe\n201,2,Premium'}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />

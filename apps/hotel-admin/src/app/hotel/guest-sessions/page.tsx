@@ -1,7 +1,6 @@
 import { requireHotelPageSession } from '@/server/require-hotel-page-session'
 import { listGuestSessions } from '@/server/services/guest-sessions.service'
 import { listRooms } from '@/server/services/rooms.service'
-import { SectionTabs } from '@/components/layout/section-tabs'
 import { GuestSessionsPanel } from './guest-sessions-panel'
 
 export default async function GuestSessionsPage() {
@@ -11,7 +10,6 @@ export default async function GuestSessionsPage() {
 
   return (
     <div className="space-y-5">
-      <SectionTabs section="operations" />
       <h1 className="text-xl font-semibold text-slate-900">Active Stays</h1>
       <GuestSessionsPanel
         sessions={sessions.map((s) => ({

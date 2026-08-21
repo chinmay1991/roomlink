@@ -19,6 +19,8 @@ import {
   MessageSquareText,
   DoorClosed,
   UtensilsCrossed,
+  Sparkles,
+  BedDouble,
 } from 'lucide-react'
 import { cn } from '@roomlink/ui'
 
@@ -86,15 +88,53 @@ const STAFF_NAV_ITEMS = [
  * that don't work). "Requests" points at the existing shared `/hotel/requests`
  * page, not a duplicate — Reception already has full view/create/edit
  * access to it via its pre-existing grants.
+ *
+ * Grouped into sections (rather than a flat list) to match the RoomLink
+ * mockup, with deviations requested afterward: Restaurant Menu is its own
+ * section (not bundled into Guest Experience, so clicking it doesn't read
+ * as part of the Requests section), Orders was moved into that Restaurant
+ * section alongside the Menu (both are restaurant-owned concerns), Services
+ * was added under Operations, and Active Stays was added to Overview
+ * alongside Dashboard (it previously sat next to Notifications in the Hotel
+ * Admin app's shared Operations tab strip — `/hotel/guest-sessions` has no
+ * role check beyond a valid hotel session, so linking it here is safe).
+ * Reports, Settings, and Audit Logs from the mockup still have no
+ * corresponding Reception-accessible page, so they remain left out.
  */
-const RECEPTION_NAV_ITEMS = [
-  { href: '/hotel/reception-desk/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/hotel/requests', label: 'Requests', icon: ClipboardList },
-  { href: '/hotel/reception-desk/conversations', label: 'Conversations', icon: MessageSquareText },
-  { href: '/hotel/reception-desk/rooms', label: 'Rooms', icon: DoorClosed },
-  { href: '/hotel/reception-desk/staff', label: 'Departments & Staff', icon: Users },
-  { href: '/hotel/reception-desk/orders', label: 'Orders', icon: UtensilsCrossed },
-  { href: '/hotel/notifications', label: 'Notifications', icon: Bell },
+const RECEPTION_NAV_SECTIONS = [
+  {
+    section: 'Overview',
+    items: [
+      { href: '/hotel/reception-desk/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/hotel/guest-sessions', label: 'Active Stays', icon: BedDouble },
+    ],
+  },
+  {
+    section: 'Guest Experience',
+    items: [
+      { href: '/hotel/requests', label: 'Requests', icon: ClipboardList },
+      { href: '/hotel/reception-desk/conversations', label: 'Conversations', icon: MessageSquareText },
+    ],
+  },
+  {
+    section: 'Restaurant',
+    items: [
+      { href: '/hotel/menu', label: 'Restaurant Menu', icon: ConciergeBell },
+      { href: '/hotel/reception-desk/orders', label: 'Orders', icon: UtensilsCrossed },
+    ],
+  },
+  {
+    section: 'Operations',
+    items: [
+      { href: '/hotel/reception-desk/rooms', label: 'Rooms', icon: DoorClosed },
+      { href: '/hotel/reception-desk/staff', label: 'Departments & Staff', icon: Users },
+      { href: '/hotel/services', label: 'Services', icon: Sparkles },
+    ],
+  },
+  {
+    section: 'Communication',
+    items: [{ href: '/hotel/notifications', label: 'Notifications', icon: Bell }],
+  },
 ]
 
 export function Sidebar() {
@@ -103,13 +143,28 @@ export function Sidebar() {
   const isDepartmentManager = session?.user?.roleName === 'Department Manager'
   const isDepartmentStaff = session?.user?.roleName === 'Department Staff'
   const isReception = session?.user?.roleName === 'Reception'
-  const items = isDepartmentManager
-    ? MANAGER_NAV_ITEMS
-    : isDepartmentStaff
-      ? STAFF_NAV_ITEMS
-      : isReception
-        ? RECEPTION_NAV_ITEMS
-        : FULL_NAV_ITEMS
+  const items = isDepartmentManager ? MANAGER_NAV_ITEMS : isDepartmentStaff ? STAFF_NAV_ITEMS : FULL_NAV_ITEMS
+
+  function isActive({ href, group }: { href: string; group?: string[] }) {
+    return group ? group.some((g) => pathname?.startsWith(g)) : pathname === href
+  }
+
+  function navLink({ href, label, icon: Icon, group }: { href: string; label: string; icon: typeof LayoutDashboard; group?: string[] }) {
+    const active = isActive({ href, group })
+    return (
+      <Link
+        key={href}
+        href={href}
+        className={cn(
+          'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+          active ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+        )}
+      >
+        <Icon className="h-4 w-4" aria-hidden />
+        {label}
+      </Link>
+    )
+  }
 
   return (
     <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
@@ -119,22 +174,14 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {items.map(({ href, label, icon: Icon, group }: { href: string; label: string; icon: typeof LayoutDashboard; group?: string[] }) => {
-          const active = group ? group.some((g) => pathname?.startsWith(g)) : pathname === href
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                active ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              )}
-            >
-              <Icon className="h-4 w-4" aria-hidden />
-              {label}
-            </Link>
-          )
-        })}
+        {isReception
+          ? RECEPTION_NAV_SECTIONS.map(({ section, items: sectionItems }, index) => (
+              <div key={section} className={index > 0 ? 'pt-4' : undefined}>
+                <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{section}</p>
+                {sectionItems.map(navLink)}
+              </div>
+            ))
+          : items.map(navLink)}
       </nav>
     </aside>
   )

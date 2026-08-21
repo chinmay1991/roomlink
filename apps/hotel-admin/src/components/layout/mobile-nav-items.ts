@@ -13,6 +13,7 @@ import {
   MessageSquareText,
   DoorClosed,
   UtensilsCrossed,
+  BedDouble,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -69,6 +70,7 @@ const STAFF_ITEMS: MobileNavItem[] = [
 
 const RECEPTION_ITEMS: MobileNavItem[] = [
   { href: '/hotel/reception-desk/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/hotel/guest-sessions', label: 'Active Stays', icon: BedDouble },
   { href: '/hotel/requests', label: 'Requests', icon: ClipboardList },
   { href: '/hotel/reception-desk/conversations', label: 'Conversations', icon: MessageSquareText },
   { href: '/hotel/reception-desk/rooms', label: 'Rooms', icon: DoorClosed },
