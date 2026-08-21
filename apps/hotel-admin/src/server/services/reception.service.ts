@@ -32,6 +32,7 @@ type ReceptionKpiRow = {
   escalated: number
   high_priority: number
   completed_today: number
+  guests_in_house: number
 }
 
 /**
@@ -52,7 +53,8 @@ export async function getReceptionDashboard(hotelId: string, actor: HotelSession
         (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND status = 'in_progress')::int AS in_progress,
         (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND status = 'escalated')::int AS escalated,
         (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND priority IN ('high', 'urgent') AND status IN ('pending', 'assigned', 'in_progress'))::int AS high_priority,
-        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND status = 'completed' AND completed_at >= ${today})::int AS completed_today
+        (SELECT COUNT(*) FROM requests WHERE hotel_id = ${hotelId}::uuid AND status = 'completed' AND completed_at >= ${today})::int AS completed_today,
+        (SELECT COUNT(*) FROM guest_sessions WHERE hotel_id = ${hotelId}::uuid AND status = 'active')::int AS guests_in_house
     `,
     prisma.requests.findMany({
       where: { hotel_id: hotelId, status: { in: ['pending', 'assigned', 'in_progress'] } },
@@ -75,6 +77,7 @@ export async function getReceptionDashboard(hotelId: string, actor: HotelSession
     escalated: kpis.escalated,
     highPriority: kpis.high_priority,
     completedToday: kpis.completed_today,
+    guestsInHouse: kpis.guests_in_house,
     slaAtRisk,
     unreadMessages,
   }
@@ -177,7 +180,12 @@ export async function getRoomOverview(hotelId: string, actor: HotelSessionUser) 
     orderBy: [{ floor: 'asc' }, { room_number: 'asc' }],
     include: {
       room_types: { select: { name: true } },
-      guest_sessions: { where: { status: 'active' }, take: 1, orderBy: { issued_at: 'desc' } },
+      guest_sessions: {
+        where: { status: 'active' },
+        take: 1,
+        orderBy: { issued_at: 'desc' },
+        include: { guests: { select: { full_name: true } } },
+      },
       requests: { where: { status: { in: ['pending', 'assigned', 'in_progress', 'escalated'] } }, select: { request_id: true } },
     },
   })
@@ -190,6 +198,7 @@ export async function getRoomOverview(hotelId: string, actor: HotelSessionUser) 
     roomType: r.room_types?.name ?? null,
     occupied: r.guest_sessions.length > 0,
     activeGuestSessionId: r.guest_sessions[0]?.session_id ?? null,
+    guestName: r.guest_sessions[0]?.guests?.full_name ?? null,
     openRequests: r.requests.length,
   }))
 }
