@@ -6,7 +6,26 @@ import { Button, Modal } from '@roomlink/ui'
 import type { ZegoUIKitPrebuilt as ZegoUIKitPrebuiltClass } from '@zegocloud/zego-uikit-prebuilt'
 
 type VoiceCallToken = { appId: number; token: string; userId: string; userName: string }
-type IncomingCall = { callerName: string; accept: () => void; refuse: () => void }
+type IncomingCall = { roomNumber: string | null; guestName: string | null; accept: () => void; refuse: () => void }
+
+/**
+ * The guest client JSON.stringifies { roomNumber, guestName } into
+ * sendCallInvitation's `data` param (apps/guest's voice-call-button.tsx) —
+ * this is the primary channel for room details. `callerName` (the SDK's own
+ * plain-text userName field, e.g. "Room 204 (Jane Doe)") is a fallback only,
+ * used if `data` is ever missing or fails to parse.
+ */
+function parseCallInviteData(data: string, callerName: string): { roomNumber: string | null; guestName: string | null } {
+  try {
+    const parsed = JSON.parse(data)
+    if (typeof parsed.roomNumber === 'string') {
+      return { roomNumber: parsed.roomNumber, guestName: typeof parsed.guestName === 'string' ? parsed.guestName : null }
+    }
+  } catch {
+    // fall through to the caller-name fallback below
+  }
+  return { roomNumber: callerName || null, guestName: null }
+}
 
 async function fetchListenerToken(): Promise<VoiceCallToken> {
   const res = await fetch('/api/v1/hotel/voice-call/token')
@@ -136,10 +155,12 @@ export function VoiceCallListener({ enabled }: { enabled: boolean }) {
         // Custom dialog: we own the popup + ringtone instead of the SDK's
         // built-in banner. `accept`/`refuse` are the SDK's own callbacks —
         // calling accept() still triggers its internal join flow below.
-        onConfirmDialogWhenReceiving: (_callType, caller, refuse, accept) => {
+        onConfirmDialogWhenReceiving: (_callType, caller, refuse, accept, data) => {
           ringtone.start()
+          const { roomNumber, guestName } = parseCallInviteData(data, caller.userName ?? '')
           setIncomingCall({
-            callerName: caller.userName || 'Guest',
+            roomNumber,
+            guestName,
             accept: () => {
               stopRinging()
               accept()
@@ -199,9 +220,15 @@ export function VoiceCallListener({ enabled }: { enabled: boolean }) {
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
           <PhoneIncoming className="h-6 w-6 text-emerald-600" aria-hidden />
         </div>
-        <p className="text-center text-sm text-slate-600">
-          <span className="font-semibold text-slate-900">{incomingCall.callerName}</span> is calling Reception
-        </p>
+        <div className="text-center">
+          <p className="text-sm text-slate-600">
+            <span className="font-semibold text-slate-900">
+              {incomingCall.roomNumber ? `Room ${incomingCall.roomNumber}` : 'A guest'}
+            </span>{' '}
+            is calling Reception
+          </p>
+          {incomingCall.guestName && <p className="mt-0.5 text-xs text-slate-500">{incomingCall.guestName}</p>}
+        </div>
         <div className="flex w-full gap-3">
           <Button variant="danger" onClick={incomingCall.refuse} className="flex-1">
             <PhoneOff className="h-4 w-4" aria-hidden />

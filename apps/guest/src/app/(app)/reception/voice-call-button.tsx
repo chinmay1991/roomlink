@@ -14,6 +14,8 @@ type StartVoiceCallResponse = {
   userId: string
   userName: string
   roomId: string
+  roomNumber: string
+  guestName: string | null
   calleeIds: string[]
 }
 
@@ -126,41 +128,57 @@ export function VoiceCallButton() {
 
     // addPlugins() kicks off ZIM login asynchronously; calling
     // sendCallInvitation() in the same tick can race ahead of that login
-    // actually completing (observed: consistent ~2s failures with
-    // errorInvitees covering every callee, even though both sides show
-    // "online" moments later via ZegoCloud's own QueryUserOnlineState API).
-    // One short wait-and-retry covers that without a real "ready" hook
-    // exposed on this SDK's typed surface.
+    // actually completing. Confirmed via a live test: the SDK throws
+    // {code: 6000121, message: "API.callInvite: Not logged in."} — a hard
+    // throw, not just a soft errorInvitees failure — even though both
+    // sides show "online" moments later via ZegoCloud's own
+    // QueryUserOnlineState API. There's no "login ready" hook exposed on
+    // this SDK's typed surface, so retry both failure shapes (thrown and
+    // errorInvitees) with a short delay until login has had time to settle.
+    const MAX_INVITE_ATTEMPTS = 5
+    const INVITE_RETRY_DELAY_MS = 1000
+
+    // Room number/guest name for Reception's incoming-call popup — sent as
+    // the invitation's `data` payload (delivered verbatim to
+    // onConfirmDialogWhenReceiving on the callee side) rather than crammed
+    // into `userName`, which is also set as a plain-text fallback above.
+    const callInviteData = JSON.stringify({ roomNumber: call.roomNumber, guestName: call.guestName })
+
     async function attemptInvite() {
       return zp.sendCallInvitation({
         callees: call.calleeIds.map((id) => ({ userID: id, userName: 'Reception' })),
         callType: ZegoUIKitPrebuilt.InvitationTypeVoiceCall,
         timeout: 60,
         roomID: call.roomId,
+        data: callInviteData,
       })
     }
 
-    try {
-      let result = await attemptInvite()
-      console.warn('[voice-call] sendCallInvitation result', result)
-
-      if (result.errorInvitees.length === call.calleeIds.length) {
-        await new Promise((resolve) => setTimeout(resolve, 1500))
-        result = await attemptInvite()
-        console.warn('[voice-call] sendCallInvitation retry result', result)
+    let succeeded = false
+    for (let attempt = 1; attempt <= MAX_INVITE_ATTEMPTS; attempt++) {
+      try {
+        const result = await attemptInvite()
+        if (result.errorInvitees.length < call.calleeIds.length) {
+          succeeded = true
+          break
+        }
+        console.warn(`[voice-call] sendCallInvitation attempt ${attempt}: all invitees failed`, result.errorInvitees)
+      } catch (error) {
+        console.warn(`[voice-call] sendCallInvitation attempt ${attempt} threw`, error)
       }
-
-      if (result.errorInvitees.length === call.calleeIds.length) {
-        setError('Unable to reach Reception right now. Please try again.')
-        endCall()
-        return
+      if (attempt < MAX_INVITE_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, INVITE_RETRY_DELAY_MS))
       }
-      setState('ringing')
-    } catch (error) {
-      console.error('[voice-call] sendCallInvitation threw', error)
+    }
+
+    if (!succeeded) {
+      console.error('[voice-call] sendCallInvitation failed after', MAX_INVITE_ATTEMPTS, 'attempts')
       setError('Unable to reach Reception. Please try again.')
       endCall()
+      return
     }
+
+    setState('ringing')
   }
 
   return (

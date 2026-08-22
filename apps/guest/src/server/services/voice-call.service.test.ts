@@ -5,6 +5,7 @@ import { startVoiceCall, endVoiceCall, guestZegoUserId, staffZegoUserId } from '
 const mockPrisma = vi.hoisted(() => ({
   call_logs: { count: vi.fn(), create: vi.fn(), findFirstOrThrow: vi.fn(), update: vi.fn() },
   users: { findMany: vi.fn() },
+  guest_sessions: { findUniqueOrThrow: vi.fn() },
 }))
 
 vi.mock('@/server/db', () => ({ prisma: mockPrisma }))
@@ -25,6 +26,10 @@ beforeEach(() => {
   mockPrisma.call_logs.count.mockResolvedValue(0)
   mockPrisma.users.findMany.mockResolvedValue([{ user_id: 'staff-1' }, { user_id: 'staff-2' }])
   mockPrisma.call_logs.create.mockResolvedValue({ call_log_id: 'call-1', zego_room_id: 'call_hotel-1_room-1_abc' })
+  mockPrisma.guest_sessions.findUniqueOrThrow.mockResolvedValue({
+    rooms: { room_number: '204' },
+    guests: { full_name: 'Jane Doe' },
+  })
 })
 
 describe('startVoiceCall', () => {
@@ -41,6 +46,23 @@ describe('startVoiceCall', () => {
     )
     expect(result.calleeIds).toEqual([staffZegoUserId('staff-1'), staffZegoUserId('staff-2')])
     expect(result.userId).toBe(guestZegoUserId('session-1'))
+  })
+
+  it('includes the caller room number and guest name for Reception\'s incoming-call popup', async () => {
+    const result = await startVoiceCall(CTX)
+
+    expect(result.roomNumber).toBe('204')
+    expect(result.guestName).toBe('Jane Doe')
+    expect(result.userName).toBe('Room 204 (Jane Doe)')
+  })
+
+  it('falls back to just the room number when the stay has no linked guest', async () => {
+    mockPrisma.guest_sessions.findUniqueOrThrow.mockResolvedValue({ rooms: { room_number: '204' }, guests: null })
+
+    const result = await startVoiceCall(CTX)
+
+    expect(result.guestName).toBeNull()
+    expect(result.userName).toBe('Room 204')
   })
 
   it('keeps every zego user id at or under the 32-byte limit ZegoCloud enforces, even for a full-length UUID source id', async () => {

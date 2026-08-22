@@ -35,14 +35,25 @@ export async function startVoiceCall(ctx: GuestSessionContext) {
     throw new RateLimitedError(Math.ceil(CALL_WINDOW_MS / 1000))
   }
 
-  const receptionStaff = await prisma.users.findMany({
-    where: {
-      hotel_id: ctx.hotelId,
-      status: 'active',
-      OR: [{ user_type: 'hotel_admin' }, { roles: { name: 'Reception' } }],
-    },
-    select: { user_id: true },
-  })
+  const [receptionStaff, session] = await Promise.all([
+    prisma.users.findMany({
+      where: {
+        hotel_id: ctx.hotelId,
+        status: 'active',
+        OR: [{ user_type: 'hotel_admin' }, { roles: { name: 'Reception' } }],
+      },
+      select: { user_id: true },
+    }),
+    prisma.guest_sessions.findUniqueOrThrow({
+      where: { session_id: ctx.sessionId },
+      select: {
+        rooms: { select: { room_number: true } },
+        guests: { select: { full_name: true } },
+      },
+    }),
+  ])
+  const roomNumber = session.rooms.room_number
+  const guestName = session.guests?.full_name ?? null
 
   const zegoRoomId = `call_${ctx.hotelId}_${ctx.roomId}_${randomBytes(8).toString('hex')}`
 
@@ -65,14 +76,21 @@ export async function startVoiceCall(ctx: GuestSessionContext) {
   })
 
   const userId = guestZegoUserId(ctx.sessionId)
+  // Shown as the caller's display name by the Zego SDK itself if the
+  // `data` payload (below) is ever unavailable/unparsed on the receiving
+  // end — kept in sync with roomNumber/guestName as a fallback, not the
+  // primary channel.
+  const userName = guestName ? `Room ${roomNumber} (${guestName})` : `Room ${roomNumber}`
 
   return {
     callLogId: callLog.call_log_id,
     appId: getZegoAppId(),
     token: generateZegoToken(userId, TOKEN_TTL_SECONDS, zegoRoomId),
     userId,
-    userName: 'Guest',
+    userName,
     roomId: zegoRoomId,
+    roomNumber,
+    guestName,
     calleeIds: receptionStaff.map((u) => staffZegoUserId(u.user_id)),
   }
 }
