@@ -21,6 +21,7 @@ import {
   UtensilsCrossed,
   Sparkles,
   BedDouble,
+  Phone,
 } from 'lucide-react'
 import { cn } from '@roomlink/ui'
 
@@ -133,7 +134,10 @@ const RECEPTION_NAV_SECTIONS = [
   },
   {
     section: 'Communication',
-    items: [{ href: '/hotel/notifications', label: 'Notifications', icon: Bell }],
+    items: [
+      { href: '/hotel/notifications', label: 'Notifications', icon: Bell },
+      { href: '/hotel/reception-desk/call-logs', label: 'Call Logs', icon: Phone },
+    ],
   },
 ]
 

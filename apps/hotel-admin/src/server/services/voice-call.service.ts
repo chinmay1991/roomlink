@@ -85,8 +85,12 @@ export async function declineVoiceCall(actor: HotelSessionUser, zegoRoomId: stri
   })
 }
 
-/** Reception dashboard "Recent Calls" panel — most recent first. */
-export async function listCallLogs(hotelId: string, actor: HotelSessionUser, limit = 10) {
+/**
+ * Most recent first. Used two ways: the Reception dashboard's "Recent
+ * Calls" panel passes `limit: 5`; the full Call Logs page (Communication
+ * section) omits it for the complete hotel-wide history.
+ */
+export async function listCallLogs(hotelId: string, actor: HotelSessionUser, limit?: number) {
   requireReceptionOrAdmin(actor)
   return prisma.call_logs.findMany({
     where: { hotel_id: hotelId },

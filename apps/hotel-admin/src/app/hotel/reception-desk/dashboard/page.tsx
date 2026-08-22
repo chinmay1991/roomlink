@@ -236,6 +236,9 @@ export default async function ReceptionDashboardPage() {
                 <PhoneIncoming className="h-4 w-4 text-slate-500" aria-hidden />
                 <h2 className="text-sm font-semibold text-slate-900">Recent Calls</h2>
               </div>
+              <Link href="/hotel/reception-desk/call-logs" className="text-xs font-medium text-brand-600 hover:text-brand-700">
+                View all
+              </Link>
             </CardHeader>
             <ul className="divide-y divide-slate-100">
               {recentCalls.map((c) => (

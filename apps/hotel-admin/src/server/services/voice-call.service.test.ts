@@ -101,4 +101,14 @@ describe('listCallLogs', () => {
       expect.objectContaining({ where: { hotel_id: 'hotel-1' }, orderBy: { initiated_at: 'desc' } }),
     )
   })
+
+  it('caps to the given limit for the dashboard panel, but is uncapped when omitted for the full Call Logs page', async () => {
+    mockPrisma.call_logs.findMany.mockResolvedValue([])
+
+    await listCallLogs('hotel-1', RECEPTION, 5)
+    expect(mockPrisma.call_logs.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }))
+
+    await listCallLogs('hotel-1', RECEPTION)
+    expect(mockPrisma.call_logs.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: undefined }))
+  })
 })
