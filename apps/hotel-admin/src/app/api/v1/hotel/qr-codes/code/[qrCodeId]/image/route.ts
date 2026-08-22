@@ -20,7 +20,8 @@ export async function GET(req: NextRequest, { params }: { params: { qrCodeId: st
 
     const qr = await getQrCodeForRoom(user.hotelId, params.qrCodeId)
     const payload = buildRoomQrUrl(qr.code_value)
-    const png = await QRCode.toBuffer(payload, { type: 'png', width: 480, margin: 2 })
+    // width: 720px so the code stays crisp when printed at ~2in on the room card (see room-qr-card.tsx) — 480px looked soft at that physical size.
+    const png = await QRCode.toBuffer(payload, { type: 'png', width: 720, margin: 2 })
 
     const download = new URL(req.url).searchParams.get('download') === 'true'
     return new NextResponse(new Uint8Array(png), {

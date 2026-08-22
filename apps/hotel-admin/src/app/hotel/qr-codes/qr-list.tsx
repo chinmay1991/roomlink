@@ -71,18 +71,12 @@ export function QrList({ rooms }: { rooms: Room[] }) {
                       {active && (
                         <>
                           <a
-                            href={`/api/v1/hotel/qr-codes/code/${active.qr_code_id}/image`}
+                            href={`/qr-card/${active.qr_code_id}`}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                           >
-                            Print
-                          </a>
-                          <a
-                            href={`/api/v1/hotel/qr-codes/code/${active.qr_code_id}/image?download=true`}
-                            className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                          >
-                            Download
+                            Print / download card
                           </a>
                           {!active.installed_at && (
                             <Button
