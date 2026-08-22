@@ -35,6 +35,17 @@ model audit_logs {
   @@index([entity_type, entity_id], map: "idx_audit_logs_entity")
 }
 
+model buildings {
+  building_id String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotel_id    String   @db.Uuid
+  name        String   @db.VarChar(100)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  hotels      hotels   @relation(fields: [hotel_id], references: [hotel_id], onDelete: Cascade, onUpdate: NoAction)
+  rooms       rooms[]
+
+  @@unique([hotel_id, name])
+}
+
 model call_logs {
   call_log_id      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   hotel_id         String          @db.Uuid
@@ -188,6 +199,7 @@ model hotels {
   created_at                                  DateTime                 @default(now()) @db.Timestamptz(6)
   updated_at                                  DateTime                 @default(now()) @db.Timestamptz(6)
   announcements                               announcements[]
+  buildings                                   buildings[]
   call_logs                                   call_logs[]
   conversations                               conversations[]
   departments                                 departments[]
@@ -476,6 +488,7 @@ model rooms {
   room_id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   hotel_id       String           @db.Uuid
   room_type_id   String?          @db.Uuid
+  building_id    String?          @db.Uuid
   room_number    String           @db.VarChar(20)
   floor          String?          @db.VarChar(20)
   status         room_status      @default(active)
@@ -489,6 +502,7 @@ model rooms {
   guest_sessions guest_sessions[]
   hotels         hotels           @relation(fields: [hotel_id], references: [hotel_id], onDelete: Cascade, onUpdate: NoAction)
   room_types     room_types?      @relation(fields: [room_type_id], references: [room_type_id], onDelete: NoAction, onUpdate: NoAction)
+  buildings      buildings?       @relation(fields: [building_id], references: [building_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([hotel_id, room_number])
   @@index([hotel_id], map: "idx_rooms_hotel")

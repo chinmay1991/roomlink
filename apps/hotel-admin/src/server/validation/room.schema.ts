@@ -13,6 +13,7 @@ export const createRoomSchema = z.object({
   roomNumber: z.string().trim().min(1, 'Room number is required').max(20),
   floor: floorSchema,
   roomType: z.string().trim().max(100).optional().or(z.literal('')),
+  building: z.string().trim().max(100).optional().or(z.literal('')),
 })
 export type CreateRoomInput = z.infer<typeof createRoomSchema>
 
@@ -25,6 +26,7 @@ export const updateRoomSchema = z.object({
   roomNumber: z.string().trim().min(1).max(20),
   floor: floorSchema,
   roomType: z.string().trim().max(100).optional().or(z.literal('')),
+  building: z.string().trim().max(100).optional().or(z.literal('')),
 })
 export type UpdateRoomInput = z.infer<typeof updateRoomSchema>
 
@@ -35,6 +37,7 @@ export const bulkImportRoomsSchema = z.object({
         roomNumber: z.string().trim().min(1),
         floor: floorSchema,
         roomType: z.string().trim().optional().or(z.literal('')),
+        building: z.string().trim().optional().or(z.literal('')),
       })
     )
     .min(1, 'No rows to import')

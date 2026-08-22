@@ -12,10 +12,12 @@ export default async function QrCodesPage() {
       <SectionTabs section="hotel" />
       <h1 className="text-xl font-semibold text-slate-900">QR Codes</h1>
       <QrList
+        hotelName={session.user.hotelName ?? 'this hotel'}
         rooms={rooms.map((r) => ({
           room_id: r.room_id,
           room_number: r.room_number,
           floor: r.floor,
+          building: r.buildings?.name ?? null,
           qr_codes: r.qr_codes.map((q) => ({
             qr_code_id: q.qr_code_id,
             is_active: q.is_active,

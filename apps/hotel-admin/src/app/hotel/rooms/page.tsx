@@ -17,9 +17,13 @@ export default async function RoomsPage() {
         <h1 className="text-xl font-semibold text-slate-900">Rooms</h1>
         <p className="text-sm text-slate-500">{rooms.length} total</p>
       </div>
-      <RoomList rooms={rooms} isNative={isNativeClient()} />
+      <RoomList
+        rooms={rooms.map((r) => ({ ...r, building: r.buildings?.name ?? null }))}
+        hotelName={session.user.hotelName ?? 'this hotel'}
+        isNative={isNativeClient()}
+      />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <CreateRoomForm />
+        <CreateRoomForm hotelName={session.user.hotelName ?? 'this hotel'} />
         <BulkImport />
       </div>
     </div>

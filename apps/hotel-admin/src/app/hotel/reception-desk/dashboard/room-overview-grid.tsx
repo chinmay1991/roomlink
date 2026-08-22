@@ -2,48 +2,21 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, LayoutGrid, List, Search, User, Wrench } from 'lucide-react'
+import { LayoutGrid, List, Search, User, Wrench } from 'lucide-react'
 import { Input, cn } from '@roomlink/ui'
+import { floorLabel, groupByBuilding, groupByFloor } from '@/lib/floor'
+import { Pager } from '@/components/pager'
 
 type Room = {
   room_id: string
   room_number: string
   floor: string | null
+  building: string | null
   status: string
   roomType: string | null
   occupied: boolean
   guestName: string | null
   openRequests: number
-}
-
-/** Existing floor data is free text ("Ground", "Floor 1", "Floor 10", plain "1", etc.), not bare numbers — only new rooms created after the 0-100 validation was added are guaranteed plain digits. Ground normalizes to 0; any other string has its first number pulled out (so "Floor 10" groups as floor 10). Anything with no number at all (e.g. "PH") has no sequential position and is grouped with the unassigned/null floors at the end. */
-function normalizeFloor(floor: string | null): number | null {
-  if (floor === null) return null
-  const trimmed = floor.trim()
-  if (!trimmed) return null
-  if (/^g(round)?(\s*floor)?$/i.test(trimmed)) return 0
-  const match = trimmed.match(/\d+/)
-  return match ? Number(match[0]) : null
-}
-
-function floorLabel(floor: number | null) {
-  return floor === null ? '—' : String(floor)
-}
-
-function groupByFloor(rooms: Room[]) {
-  const map = new Map<number | null, Room[]>()
-  for (const r of rooms) {
-    const key = normalizeFloor(r.floor)
-    if (!map.has(key)) map.set(key, [])
-    map.get(key)!.push(r)
-  }
-  return Array.from(map.entries())
-    .sort(([a], [b]) => {
-      if (a === null) return b === null ? 0 : 1
-      if (b === null) return -1
-      return a - b
-    })
-    .map(([floor, rooms]) => ({ floor, rooms }))
 }
 
 type Bucket = 'all' | 'occupied' | 'vacant' | 'out_of_order'
@@ -62,7 +35,7 @@ const TABS: { key: Bucket; label: string }[] = [
   { key: 'out_of_order', label: 'Out of Order' },
 ]
 
-export function RoomOverviewGrid({ rooms }: { rooms: Room[] }) {
+export function RoomOverviewGrid({ rooms, hotelName }: { rooms: Room[]; hotelName: string }) {
   const [tab, setTab] = useState<Bucket>('all')
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'grid' | 'list'>('grid')
@@ -82,13 +55,22 @@ export function RoomOverviewGrid({ rooms }: { rooms: Room[] }) {
     })
   }, [rooms, tab, query])
 
-  const floorGroups = useMemo(() => groupByFloor(filtered), [filtered])
+  // Two-level grouping: a hotel with multiple buildings can have the same
+  // floor number repeat per building (Building A Floor 1 vs Building B
+  // Floor 1), so floor pagination alone would conflate them.
+  const buildingGroups = useMemo(() => groupByBuilding(filtered, hotelName), [filtered, hotelName])
+  const [buildingPage, setBuildingPage] = useState(0)
   const [floorPage, setFloorPage] = useState(0)
 
   useEffect(() => {
+    setBuildingPage(0)
     setFloorPage(0)
   }, [tab, query])
 
+  const currentBuildingPage = Math.min(buildingPage, Math.max(0, buildingGroups.length - 1))
+  const currentBuilding = buildingGroups[currentBuildingPage]
+
+  const floorGroups = useMemo(() => groupByFloor(currentBuilding?.items ?? []), [currentBuilding])
   const currentFloorPage = Math.min(floorPage, Math.max(0, floorGroups.length - 1))
   const currentFloor = floorGroups[currentFloorPage]
 
@@ -141,22 +123,34 @@ export function RoomOverviewGrid({ rooms }: { rooms: Room[] }) {
         </div>
       </div>
 
+      {buildingGroups.length > 1 && (
+        <Pager
+          items={buildingGroups.map((g) => ({ key: g.building, label: g.building }))}
+          currentIndex={currentBuildingPage}
+          onSelect={(idx) => {
+            setBuildingPage(idx)
+            setFloorPage(0)
+          }}
+        />
+      )}
+
       {filtered.length === 0 || !currentFloor ? (
         <p className="py-10 text-center text-sm text-slate-500">No rooms match.</p>
       ) : (
         <>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {currentFloor.floor === null ? 'Unassigned' : `Floor ${currentFloor.floor}`} ({currentFloor.rooms.length})
+            {currentBuilding && buildingGroups.length > 1 ? `${currentBuilding.building} · ` : ''}
+            {currentFloor.floor === null ? 'Unassigned' : `Floor ${currentFloor.floor}`} ({currentFloor.items.length})
           </h3>
           {view === 'grid' ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {currentFloor.rooms.map((r) => (
+              {currentFloor.items.map((r) => (
                 <RoomCard key={r.room_id} room={r} />
               ))}
             </div>
           ) : (
             <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-              {currentFloor.rooms.map((r) => {
+              {currentFloor.items.map((r) => {
                 const bucket = bucketOf(r)
                 return (
                   <li key={r.room_id}>
@@ -176,48 +170,12 @@ export function RoomOverviewGrid({ rooms }: { rooms: Room[] }) {
             </ul>
           )}
           {floorGroups.length > 1 && (
-            <div className="flex items-center justify-center gap-2 border-t border-slate-100 pt-4">
-              <button
-                type="button"
-                onClick={() => setFloorPage((p) => Math.max(0, p - 1))}
-                disabled={currentFloorPage <= 0}
-                aria-label="Previous floor"
-                className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-slate-600 transition-colors',
-                  currentFloorPage <= 0 ? 'pointer-events-none opacity-40' : 'hover:bg-slate-200'
-                )}
-              >
-                <ChevronLeft className="h-4 w-4" aria-hidden />
-              </button>
-              {floorGroups.map((g, idx) => (
-                <button
-                  key={g.floor ?? 'unassigned'}
-                  type="button"
-                  onClick={() => setFloorPage(idx)}
-                  aria-current={idx === currentFloorPage ? 'true' : undefined}
-                  aria-label={g.floor === null ? 'Unassigned floor' : `Floor ${g.floor}`}
-                  className={cn(
-                    'flex h-10 w-10 items-center justify-center rounded-md text-sm font-medium transition-colors',
-                    idx === currentFloorPage
-                      ? 'border border-slate-900 bg-white text-slate-900'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  )}
-                >
-                  {floorLabel(g.floor)}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setFloorPage((p) => Math.min(floorGroups.length - 1, p + 1))}
-                disabled={currentFloorPage >= floorGroups.length - 1}
-                aria-label="Next floor"
-                className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-slate-600 transition-colors',
-                  currentFloorPage >= floorGroups.length - 1 ? 'pointer-events-none opacity-40' : 'hover:bg-slate-200'
-                )}
-              >
-                <ChevronRight className="h-4 w-4" aria-hidden />
-              </button>
+            <div className="border-t border-slate-100 pt-4">
+              <Pager
+                items={floorGroups.map((g) => ({ key: g.floor === null ? 'unassigned' : String(g.floor), label: floorLabel(g.floor) }))}
+                currentIndex={currentFloorPage}
+                onSelect={setFloorPage}
+              />
             </div>
           )}
         </>

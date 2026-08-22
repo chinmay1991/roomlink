@@ -12,6 +12,7 @@ export default async function RoomsOverviewPage() {
   const session = await requireHotelPageSession()
   const actor = session.user as HotelSessionUser
   const rooms = await getRoomOverview(actor.hotelId, actor)
+  const hotelName = session.user.hotelName ?? 'this hotel'
 
   return (
     <div className="space-y-5">
@@ -19,13 +20,14 @@ export default async function RoomsOverviewPage() {
       <h1 className="text-xl font-semibold text-slate-900">Rooms</h1>
       <Card className="overflow-hidden">
         {isNativeClient() ? (
-          <RoomOverviewCards rooms={rooms} />
+          <RoomOverviewCards rooms={rooms} hotelName={hotelName} />
         ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-5 py-3 font-medium">Room</th>
+                <th className="px-5 py-3 font-medium">Building</th>
                 <th className="px-5 py-3 font-medium">Type</th>
                 <th className="px-5 py-3 font-medium">Occupancy</th>
                 <th className="px-5 py-3 font-medium">Guest session</th>
@@ -36,6 +38,7 @@ export default async function RoomsOverviewPage() {
               {rooms.map((r) => (
                 <ClickableRow key={r.room_id} href={`/hotel/requests?q=${encodeURIComponent(r.room_number)}`}>
                   <td className="px-5 py-2.5 font-medium text-slate-900">{r.room_number}</td>
+                  <td className="px-5 py-2.5 text-slate-600">{r.building ?? hotelName}</td>
                   <td className="px-5 py-2.5 text-slate-600">{r.roomType ?? '—'}</td>
                   <td className="px-5 py-2.5">
                     <span
@@ -54,7 +57,7 @@ export default async function RoomsOverviewPage() {
               ))}
               {rooms.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-500">
+                  <td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-500">
                     No rooms yet.
                   </td>
                 </tr>

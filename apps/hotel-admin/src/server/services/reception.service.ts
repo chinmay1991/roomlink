@@ -180,6 +180,7 @@ export async function getRoomOverview(hotelId: string, actor: HotelSessionUser) 
     orderBy: [{ floor: 'asc' }, { room_number: 'asc' }],
     include: {
       room_types: { select: { name: true } },
+      buildings: { select: { name: true } },
       guest_sessions: {
         where: { status: 'active' },
         take: 1,
@@ -194,6 +195,7 @@ export async function getRoomOverview(hotelId: string, actor: HotelSessionUser) 
     room_id: r.room_id,
     room_number: r.room_number,
     floor: r.floor,
+    building: r.buildings?.name ?? null,
     status: r.status,
     roomType: r.room_types?.name ?? null,
     occupied: r.guest_sessions.length > 0,

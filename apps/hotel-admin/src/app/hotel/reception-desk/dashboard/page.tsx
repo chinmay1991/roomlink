@@ -272,7 +272,7 @@ export default async function ReceptionDashboardPage() {
             View all rooms
           </Link>
         </div>
-        <RoomOverviewGrid rooms={rooms} />
+        <RoomOverviewGrid rooms={rooms} hotelName={session.user.hotelName ?? 'this hotel'} />
       </Card>
 
       <Card className="overflow-hidden">

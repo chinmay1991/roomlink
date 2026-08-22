@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardBody, Input, Button, FormField } from '@roomlink/ui'
 import { createRoomSchema, CreateRoomInput } from '@/server/validation/room.schema'
 
-export function CreateRoomForm() {
+export function CreateRoomForm({ hotelName }: { hotelName: string }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
 
@@ -38,7 +38,7 @@ export function CreateRoomForm() {
         <h2 className="text-sm font-semibold text-slate-900">Add room</h2>
       </CardHeader>
       <CardBody>
-        <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 sm:grid-cols-5">
           <FormField label="Room number" htmlFor="roomNumber" required error={errors.roomNumber?.message}>
             <Input id="roomNumber" {...register('roomNumber')} />
           </FormField>
@@ -47,6 +47,9 @@ export function CreateRoomForm() {
           </FormField>
           <FormField label="Room type" htmlFor="roomType" error={errors.roomType?.message}>
             <Input id="roomType" placeholder="Deluxe" {...register('roomType')} />
+          </FormField>
+          <FormField label="Building" htmlFor="building" error={errors.building?.message}>
+            <Input id="building" placeholder={hotelName} {...register('building')} />
           </FormField>
           <div className="flex items-end">
             <Button type="submit" disabled={submitting} className="w-full">

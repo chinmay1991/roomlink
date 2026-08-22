@@ -18,6 +18,15 @@ async function getOrCreateRoomType(hotelId: string, name: string) {
   })
 }
 
+/** Same find-or-create pattern as room types — no separate management screen, one hotel-scoped row per unique name typed in Add Room. */
+async function getOrCreateBuilding(hotelId: string, name: string) {
+  return prisma.buildings.upsert({
+    where: { hotel_id_name: { hotel_id: hotelId, name } },
+    update: {},
+    create: { hotel_id: hotelId, name },
+  })
+}
+
 export async function listRooms(hotelId: string, filters: { status?: room_status; floor?: string; q?: string }) {
   return prisma.rooms.findMany({
     where: {
@@ -29,6 +38,7 @@ export async function listRooms(hotelId: string, filters: { status?: room_status
     orderBy: [{ floor: 'asc' }, { room_number: 'asc' }],
     include: {
       room_types: { select: { name: true } },
+      buildings: { select: { name: true } },
       qr_codes: { select: { qr_code_id: true, is_active: true, installed_at: true } },
     },
   })
@@ -36,6 +46,7 @@ export async function listRooms(hotelId: string, filters: { status?: room_status
 
 export async function createRoom(hotelId: string, input: CreateRoomInput, actor: HotelSessionUser) {
   const roomType = input.roomType ? await getOrCreateRoomType(hotelId, input.roomType) : null
+  const building = input.building ? await getOrCreateBuilding(hotelId, input.building) : null
 
   const room = await prisma.rooms.create({
     data: {
@@ -43,6 +54,7 @@ export async function createRoom(hotelId: string, input: CreateRoomInput, actor:
       room_number: input.roomNumber,
       floor: input.floor || null,
       room_type_id: roomType?.room_type_id ?? null,
+      building_id: building?.building_id ?? null,
       status: 'active',
     },
   })
@@ -64,6 +76,7 @@ export async function createRoom(hotelId: string, input: CreateRoomInput, actor:
 export async function updateRoom(hotelId: string, roomId: string, input: UpdateRoomInput, actor: HotelSessionUser) {
   await prisma.rooms.findFirstOrThrow({ where: { room_id: roomId, hotel_id: hotelId } })
   const roomType = input.roomType ? await getOrCreateRoomType(hotelId, input.roomType) : null
+  const building = input.building ? await getOrCreateBuilding(hotelId, input.building) : null
 
   const after = await prisma.rooms.update({
     where: { room_id: roomId },
@@ -71,6 +84,7 @@ export async function updateRoom(hotelId: string, roomId: string, input: UpdateR
       room_number: input.roomNumber,
       floor: input.floor || null,
       room_type_id: roomType?.room_type_id ?? null,
+      building_id: building?.building_id ?? null,
     },
   })
 
@@ -107,6 +121,7 @@ export async function updateRoomStatus(hotelId: string, roomId: string, input: U
 /** CSV/Excel bulk import (PRD §11) — rows are pre-parsed client-side; server just validates + upserts. */
 export async function bulkImportRooms(hotelId: string, input: BulkImportRoomsInput, actor: HotelSessionUser) {
   const roomTypeCache = new Map<string, string>()
+  const buildingCache = new Map<string, string>()
 
   const created = await prisma.$transaction(async (tx) => {
     const results = []
@@ -124,10 +139,30 @@ export async function bulkImportRooms(hotelId: string, input: BulkImportRoomsInp
         roomTypeId = roomTypeCache.get(row.roomType)!
       }
 
+      let buildingId: string | null = null
+      if (row.building) {
+        if (!buildingCache.has(row.building)) {
+          const b = await tx.buildings.upsert({
+            where: { hotel_id_name: { hotel_id: hotelId, name: row.building } },
+            update: {},
+            create: { hotel_id: hotelId, name: row.building },
+          })
+          buildingCache.set(row.building, b.building_id)
+        }
+        buildingId = buildingCache.get(row.building)!
+      }
+
       const room = await tx.rooms.upsert({
         where: { hotel_id_room_number: { hotel_id: hotelId, room_number: row.roomNumber } },
-        update: { floor: row.floor || null, room_type_id: roomTypeId },
-        create: { hotel_id: hotelId, room_number: row.roomNumber, floor: row.floor || null, room_type_id: roomTypeId, status: 'active' },
+        update: { floor: row.floor || null, room_type_id: roomTypeId, building_id: buildingId },
+        create: {
+          hotel_id: hotelId,
+          room_number: row.roomNumber,
+          floor: row.floor || null,
+          room_type_id: roomTypeId,
+          building_id: buildingId,
+          status: 'active',
+        },
       })
       results.push(room)
     }

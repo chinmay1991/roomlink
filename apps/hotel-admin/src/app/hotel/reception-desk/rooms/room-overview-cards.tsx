@@ -3,6 +3,7 @@ import Link from 'next/link'
 type RoomOverviewRow = {
   room_id: string
   room_number: string
+  building: string | null
   roomType: string | null
   occupied: boolean
   activeGuestSessionId: string | null
@@ -15,7 +16,7 @@ type RoomOverviewRow = {
  * browsers never see this. Same data, same destination as the desktop
  * ClickableRow.
  */
-export function RoomOverviewCards({ rooms }: { rooms: RoomOverviewRow[] }) {
+export function RoomOverviewCards({ rooms, hotelName }: { rooms: RoomOverviewRow[]; hotelName: string }) {
   if (rooms.length === 0) {
     return <p className="px-5 py-10 text-center text-sm text-slate-500">No rooms yet.</p>
   }
@@ -30,7 +31,9 @@ export function RoomOverviewCards({ rooms }: { rooms: RoomOverviewRow[] }) {
           >
             <div>
               <p className="font-medium text-slate-900">Room {r.room_number}</p>
-              <p className="text-xs text-slate-500">{r.roomType ?? 'No room type'}</p>
+              <p className="text-xs text-slate-500">
+                {r.roomType ?? 'No room type'} · {r.building ?? hotelName}
+              </p>
             </div>
             <div className="flex flex-col items-end gap-1">
               <span
