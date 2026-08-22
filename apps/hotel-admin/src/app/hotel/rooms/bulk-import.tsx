@@ -53,7 +53,7 @@ export function BulkImport() {
         <p className="text-xs text-slate-500">
           One room per line: <code>room_number,floor,room_type,building</code> — floor is a number from 0 (ground) to
           100, e.g. <code>101,1,Deluxe,Tower A</code>. Building is optional — leave it blank to fall back to the
-          hotel's name. Paste directly from a CSV export.
+          hotel&apos;s name. Paste directly from a CSV export.
         </p>
         {result && <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{result}</div>}
         <textarea
