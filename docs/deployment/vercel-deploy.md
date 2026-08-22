@@ -125,6 +125,8 @@ Preview environments.
 | `NEXTAUTH_URL` | `https://<your-hotel-admin-domain>` |
 | `NEXTAUTH_SECRET` | A **different** random secret than super-admin's |
 | `NEXT_PUBLIC_APP_URL` | The **guest app's** production URL, e.g. `https://roomlink-guest.vercel.app` or your custom domain — **not** hotel-admin's own URL. Every room QR code is generated as `${NEXT_PUBLIC_APP_URL}/r/<code>`; QR generation fails with a clear config error (not a crash) if this is unset. Required in both Production and Preview. |
+| `NEXT_PUBLIC_ZEGOCLOUD_APP_ID` | Your ZegoCloud project's App ID (numeric). Safe to expose client-side — the Call Invitation UIKit needs it in the browser. Must match `roomlink-guest`'s value below (same ZegoCloud project on both sides). |
+| `ZEGOCLOUD_SERVER_SECRET` | Your ZegoCloud project's 32-character server secret, from the same project as the App ID above. **Server-only** — never expose this with a `NEXT_PUBLIC_` prefix. Used to sign per-call tokens (`src/server/zego-token.ts`); voice-call token routes throw a clear config error if either this or the App ID is missing. |
 
 **Preview caveat for `NEXT_PUBLIC_APP_URL`:** Vercel Preview URLs are per-deploy and dynamic, so
 a hotel-admin Preview build can't automatically know a matching guest Preview URL. Point
@@ -136,9 +138,21 @@ maintaining a stable guest Preview alias.
 | Key | Value |
 |---|---|
 | `DATABASE_URL` | Same Supabase connection string as above |
+| `NEXT_PUBLIC_ZEGOCLOUD_APP_ID` | Same ZegoCloud App ID as `roomlink-hotel-admin`'s — guest and reception must be on the same ZegoCloud project for calls to reach each other. |
+| `ZEGOCLOUD_SERVER_SECRET` | Same ZegoCloud server secret as `roomlink-hotel-admin`'s. Server-only. |
 
 All three `DATABASE_URL` values must point at the **same** database — same "one database,
 several apps" architecture this repo already uses locally.
+
+**ZegoCloud console setup (do this before testing voice calls):** an App ID + server secret
+alone aren't enough. **In-app Chat (ZIM)** must be explicitly enabled for your project in the
+ZegoCloud Admin Console — the Call Invitation feature (`apps/guest`'s "Call Reception" button,
+`apps/hotel-admin`'s `voice-call-listener.tsx`) is built on ZIM's signaling, not just the base
+Voice/Video Call service you get by default. Without it, `sendCallInvitation()` fails silently
+from the guest side with no error surfaced to the user, and Reception never sees an incoming
+call — this took real debugging to track down (confirmed via ZegoCloud's own
+`QueryUserOnlineState` server API returning `"app is not configured with a online environment"`)
+before finding the missing console toggle.
 
 **Connection pooling matters here.** `supabase-migration.md` intentionally used the *direct*
 connection (port `5432`) because the apps ran as long-lived local Node processes. Vercel
