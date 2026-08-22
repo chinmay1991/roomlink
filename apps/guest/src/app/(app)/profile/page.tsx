@@ -1,7 +1,6 @@
 import { requireGuestPageSession } from '@/server/require-guest-page-session'
 import { getMe } from '@/server/services/session.service'
 import { Card, formatDate } from '@roomlink/ui'
-import { EndSessionButton } from './end-session-button'
 
 /** Guest PRD §22 — lightweight, stay-scoped only. No permanent account, nothing editable here. */
 export default async function ProfilePage() {
@@ -28,8 +27,6 @@ export default async function ProfilePage() {
           </div>
         ))}
       </Card>
-
-      <EndSessionButton />
     </div>
   )
 }

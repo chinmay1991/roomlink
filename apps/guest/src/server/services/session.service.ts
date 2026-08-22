@@ -143,23 +143,3 @@ export async function getMe(ctx: GuestSessionContext) {
     expiresAt: session.expires_at,
   }
 }
-
-export async function endGuestSession(sessionId: string) {
-  const before = await prisma.guest_sessions.findUniqueOrThrow({ where: { session_id: sessionId } })
-
-  const after = await prisma.guest_sessions.update({
-    where: { session_id: sessionId },
-    data: { status: 'terminated', terminated_at: new Date() },
-  })
-
-  await recordAudit({
-    actorId: before.guest_id,
-    actorType: 'guest',
-    action: 'guest_session.ended_by_guest',
-    entityType: 'guest_session',
-    entityId: sessionId,
-    beforeState: { status: before.status },
-  })
-
-  return after
-}
