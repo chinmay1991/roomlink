@@ -19,10 +19,10 @@ export type GuestSessionContext = {
  * security property the Guest PRD calls out repeatedly (§24/§25/§26): a
  * client can never assert its own `hotelId`/`roomId`/`sessionId`.
  *
- * A session past `expires_at` is treated as unauthorized even if its
- * `status` column still says `active` — expiry is enforced by comparing
- * against `now()` on every read, not by relying on a background job to
- * have already flipped the row to `expired`.
+ * Access has no time-based cutoff — a room's stay stays valid until
+ * Reception explicitly ends it (`status` flips to `terminated`), not until
+ * some clock reaches `expires_at`. `expires_at` is retained on the row for
+ * display only; it is never compared against `now()` here.
  */
 export async function requireGuestSession(): Promise<GuestSessionContext> {
   const token = cookies().get(GUEST_SESSION_COOKIE)?.value
@@ -31,7 +31,6 @@ export async function requireGuestSession(): Promise<GuestSessionContext> {
   const session = await prisma.guest_sessions.findUnique({ where: { session_token: token } })
   if (!session) throw new UnauthorizedError()
   if (session.status !== 'active') throw new UnauthorizedError()
-  if (session.expires_at.getTime() <= Date.now()) throw new UnauthorizedError()
 
   return {
     sessionId: session.session_id,

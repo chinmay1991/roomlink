@@ -34,9 +34,6 @@ export async function resolveQrCode(codeValue: string) {
   if (!activeSession) {
     throw new SessionNotActiveError('no_active_stay', 'This RoomLink session is not currently active. Please contact Reception.')
   }
-  if (activeSession.expires_at.getTime() <= Date.now()) {
-    throw new SessionNotActiveError('session_expired', 'Your RoomLink session has expired.')
-  }
 
   return {
     hotelId: qr.rooms.hotel_id,
@@ -61,11 +58,11 @@ export async function verifyGuestMobile(input: VerifySessionInput) {
   const session = await prisma.guest_sessions.findFirst({
     where: { hotel_id: hotelId, room_id: roomId, status: 'active' },
   })
-  // resolveQrCode already proved an active, unexpired session exists for
-  // this room — re-check here defensively in case of a race between the
-  // two calls, rather than assume it's still true a moment later.
-  if (!session || session.expires_at.getTime() <= Date.now()) {
-    throw new SessionNotActiveError('session_expired', 'Your RoomLink session has expired.')
+  // resolveQrCode already proved an active session exists for this room —
+  // re-check here defensively in case of a race between the two calls,
+  // rather than assume it's still true a moment later.
+  if (!session) {
+    throw new SessionNotActiveError('no_active_stay', 'This RoomLink session is not currently active. Please contact Reception.')
   }
 
   // Lockout is persisted on the guest_sessions row itself (not an in-memory

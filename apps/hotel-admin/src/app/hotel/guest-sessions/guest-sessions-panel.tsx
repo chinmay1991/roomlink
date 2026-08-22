@@ -133,7 +133,6 @@ export function GuestSessionsPanel({ sessions, rooms }: { sessions: Session[]; r
                 <th className="px-5 py-3 font-medium">Guest</th>
                 <th className="px-5 py-3 font-medium">Mobile</th>
                 <th className="px-5 py-3 font-medium">Started</th>
-                <th className="px-5 py-3 font-medium">Expires</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium" />
               </tr>
@@ -165,7 +164,6 @@ export function GuestSessionsPanel({ sessions, rooms }: { sessions: Session[]; r
                     )}
                   </td>
                   <td className="px-5 py-3 text-slate-600">{timeAgo(s.issued_at)}</td>
-                  <td className="px-5 py-3 text-slate-600">{timeAgo(s.expires_at)}</td>
                   <td className="px-5 py-3">
                     <StatusBadge status={s.status} />
                   </td>

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { resolveQrCode, verifyGuestMobile } from './session.service'
-import { SessionNotActiveError, MobileMismatchError, RateLimitedError } from '@/server/errors'
+import { MobileMismatchError, RateLimitedError } from '@/server/errors'
 
 const mockPrisma = vi.hoisted(() => ({
   qr_codes: { findUnique: vi.fn() },
@@ -82,10 +82,11 @@ describe('resolveQrCode', () => {
     await expect(resolveQrCode('code-a')).rejects.toMatchObject({ reason: 'no_active_stay' })
   })
 
-  it('rejects an expired stay session', async () => {
+  it('resolves an active stay even once its expires_at has passed — access has no time-based cutoff', async () => {
     mockPrisma.qr_codes.findUnique.mockResolvedValue(qrRow())
     mockPrisma.guest_sessions.findFirst.mockResolvedValue(sessionRow({ expires_at: new Date(Date.now() - 1000) }))
-    await expect(resolveQrCode('code-a')).rejects.toMatchObject({ reason: 'session_expired' })
+    const result = await resolveQrCode('code-a')
+    expect(result).toEqual({ hotelId: 'hotel-a', hotelName: 'Hotel A', roomId: 'room-a', roomNumber: '101' })
   })
 
   it('never lets one room resolve to another room/hotel', async () => {
@@ -174,11 +175,9 @@ describe('verifyGuestMobile', () => {
     )
   })
 
-  it('rejects a stay that expired since it was resolved', async () => {
-    mockPrisma.qr_codes.findUnique.mockResolvedValue(qrRow())
-    mockPrisma.guest_sessions.findFirst.mockResolvedValue(sessionRow({ expires_at: new Date(Date.now() - 1000) }))
-    await expect(verifyGuestMobile({ codeValue: 'code-a', mobile: MOBILE_A })).rejects.toBeInstanceOf(
-      SessionNotActiveError,
-    )
+  it('verifies successfully even once expires_at has passed — access has no time-based cutoff', async () => {
+    setupActiveSession({ expires_at: new Date(Date.now() - 1000) })
+    const session = await verifyGuestMobile({ codeValue: 'code-a', mobile: MOBILE_A })
+    expect(session.session_id).toBe('session-1')
   })
 })
