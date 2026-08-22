@@ -8,12 +8,16 @@ import {
   AlertTriangle,
   MessageSquareText,
   Search,
+  PhoneIncoming,
+  PhoneMissed,
+  PhoneOff,
 } from 'lucide-react'
 import { requireHotelPageSession } from '@/server/require-hotel-page-session'
 import { getReceptionDashboard, getDepartmentMonitoring, getRoomOverview } from '@/server/services/reception.service'
 import { listRequests } from '@/server/services/requests.service'
 import { getHotelAlerts } from '@/server/services/alerts.service'
 import { listConversations } from '@/server/services/conversations.service'
+import { listCallLogs } from '@/server/services/voice-call.service'
 import { Card, CardHeader, Input, StatusBadge, timeAgo } from '@roomlink/ui'
 import { PollingRefresh } from '@/components/layout/polling-refresh'
 import { ClickableRow } from '@/components/layout/clickable-row'
@@ -34,13 +38,14 @@ export default async function ReceptionDashboardPage() {
   const session = await requireHotelPageSession()
   const actor = session.user as HotelSessionUser
 
-  const [kpis, departments, rooms, openRequests, alerts, conversations] = await Promise.all([
+  const [kpis, departments, rooms, openRequests, alerts, conversations, recentCalls] = await Promise.all([
     getReceptionDashboard(actor.hotelId, actor),
     getDepartmentMonitoring(actor.hotelId, actor),
     getRoomOverview(actor.hotelId, actor),
     listRequests(actor.hotelId, {}, actor),
     getHotelAlerts(actor.hotelId),
     listConversations(actor.hotelId),
+    listCallLogs(actor.hotelId, actor, 5),
   ])
 
   const newRequests = openRequests.filter((r) => r.status === 'pending').slice(0, 4)
@@ -222,6 +227,39 @@ export default async function ReceptionDashboardPage() {
                 </li>
               ))}
               {needsReply.length === 0 && <li className="px-5 py-8 text-center text-sm text-slate-500">All caught up.</li>}
+            </ul>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PhoneIncoming className="h-4 w-4 text-slate-500" aria-hidden />
+                <h2 className="text-sm font-semibold text-slate-900">Recent Calls</h2>
+              </div>
+            </CardHeader>
+            <ul className="divide-y divide-slate-100">
+              {recentCalls.map((c) => (
+                <li key={c.call_log_id} className="flex items-start gap-2 px-5 py-3 text-sm">
+                  {c.status === 'missed' ? (
+                    <PhoneMissed className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden />
+                  ) : c.status === 'declined' ? (
+                    <PhoneOff className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+                  ) : (
+                    <PhoneIncoming className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-slate-900">Room {c.rooms?.room_number ?? '—'}</p>
+                    <p className="truncate text-slate-500">
+                      {c.status === 'ringing' && 'Ringing…'}
+                      {c.status === 'missed' && 'Missed call'}
+                      {c.status === 'declined' && 'Declined'}
+                      {(c.status === 'answered' || c.status === 'ended') && `Answered by ${c.users?.full_name ?? '—'}`}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-slate-400">{timeAgo(c.initiated_at)}</span>
+                </li>
+              ))}
+              {recentCalls.length === 0 && <li className="px-5 py-8 text-center text-sm text-slate-500">No calls yet.</li>}
             </ul>
           </Card>
         </div>

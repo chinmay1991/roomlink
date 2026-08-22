@@ -35,6 +35,26 @@ model audit_logs {
   @@index([entity_type, entity_id], map: "idx_audit_logs_entity")
 }
 
+model call_logs {
+  call_log_id      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotel_id         String          @db.Uuid
+  room_id          String?         @db.Uuid
+  guest_session_id String?         @db.Uuid
+  zego_room_id     String          @unique @db.VarChar(255)
+  status           call_status     @default(ringing)
+  answered_by      String?         @db.Uuid
+  initiated_at     DateTime        @default(now()) @db.Timestamptz(6)
+  answered_at      DateTime?       @db.Timestamptz(6)
+  ended_at         DateTime?       @db.Timestamptz(6)
+  hotels           hotels          @relation(fields: [hotel_id], references: [hotel_id], onDelete: Cascade, onUpdate: NoAction)
+  rooms            rooms?          @relation(fields: [room_id], references: [room_id], onDelete: NoAction, onUpdate: NoAction)
+  guest_sessions   guest_sessions? @relation(fields: [guest_session_id], references: [session_id], onDelete: NoAction, onUpdate: NoAction)
+  users            users?          @relation(fields: [answered_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([hotel_id, initiated_at], map: "idx_call_logs_hotel_initiated_at")
+  @@index([guest_session_id], map: "idx_call_logs_guest_session")
+}
+
 model conversations {
   conversation_id   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   hotel_id          String              @db.Uuid
@@ -127,6 +147,7 @@ model guest_sessions {
   requests                     requests[]
   orders                       orders[]
   conversations                conversations[]
+  call_logs                    call_logs[]
 
   @@index([hotel_id, room_id], map: "idx_guest_sessions_hotel_room")
 }
@@ -167,6 +188,7 @@ model hotels {
   created_at                                  DateTime                 @default(now()) @db.Timestamptz(6)
   updated_at                                  DateTime                 @default(now()) @db.Timestamptz(6)
   announcements                               announcements[]
+  call_logs                                   call_logs[]
   conversations                               conversations[]
   departments                                 departments[]
   device_tokens                               device_tokens[]
@@ -458,6 +480,7 @@ model rooms {
   floor          String?          @db.VarChar(20)
   status         room_status      @default(active)
   created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  call_logs      call_logs[]
   conversations  conversations[]
   guests         guests[]
   orders         orders[]
@@ -575,6 +598,7 @@ model users {
   created_at                                                          DateTime                 @default(now()) @db.Timestamptz(6)
   updated_at                                                          DateTime                 @default(now()) @db.Timestamptz(6)
   announcements                                                       announcements[]
+  call_logs                                                           call_logs[]
   conversations                                                       conversations[]
   device_tokens                                                       device_tokens[]
   hotels_hotels_implementation_owner_idTousers                        hotels[]                 @relation("hotels_implementation_owner_idTousers")
@@ -610,6 +634,14 @@ enum actor_type {
 enum billing_cycle {
   monthly
   yearly
+}
+
+enum call_status {
+  ringing
+  answered
+  missed
+  declined
+  ended
 }
 
 enum conversation_status {

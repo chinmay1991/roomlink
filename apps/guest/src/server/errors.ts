@@ -1,6 +1,9 @@
 /** No valid guest session cookie, or it doesn't resolve to an active `guest_sessions` row. */
 export class UnauthorizedError extends Error {}
 
+/** Thrown when a required deployment/env-config value is missing or invalid — an ops problem, not a client error. */
+export class ConfigurationError extends Error {}
+
 /**
  * The submitted mobile number doesn't match the active stay's registered
  * number for this room — distinct from a missing/expired session cookie,

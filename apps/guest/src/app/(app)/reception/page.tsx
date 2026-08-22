@@ -1,6 +1,7 @@
 import { requireGuestPageSession } from '@/server/require-guest-page-session'
 import { getGuestConversation } from '@/server/services/conversations.service'
 import { MessageThread } from './message-thread'
+import { VoiceCallButton } from './voice-call-button'
 
 /** Guest PRD §10 — start/continue a conversation with Reception. */
 export default async function ReceptionPage() {
@@ -17,6 +18,7 @@ export default async function ReceptionPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold text-slate-900">Contact Reception</h1>
+      <VoiceCallButton />
       <MessageThread initialMessages={messages} />
     </div>
   )

@@ -17,6 +17,7 @@
     "@roomlink/db": "*",
     "@roomlink/ui": "*",
     "@vercel/functions": "^1.6.0",
+    "@zegocloud/zego-uikit-prebuilt": "^2.18.2",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
@@ -29,6 +30,7 @@
     "react-dom": "^18",
     "react-hook-form": "^7.85.0",
     "tailwind-merge": "^3.6.0",
+    "zego-zim-web": "^3.1.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

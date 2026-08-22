@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
 import { StaffBottomNav } from '@/components/layout/staff-bottom-nav'
 import { MobileShell } from '@/components/layout/mobile-shell'
+import { VoiceCallListener } from '@/components/layout/voice-call-listener'
 
 export default async function HotelPortalLayout({ children }: { children: React.ReactNode }) {
   // hotelName comes off the session (set at login), not a fresh DB lookup —
@@ -19,12 +20,20 @@ export default async function HotelPortalLayout({ children }: { children: React.
   // FORCE_NATIVE_SHELL dev override), never for a real browser — so this
   // branch is provably inert for every existing browser/PWA request, which
   // keeps taking the unchanged path below.
+  const canReceiveVoiceCalls = session.user.userType === 'hotel_admin' || session.user.roleName === 'Reception'
+
   if (isNativeClient()) {
-    return <MobileShell roleName={session.user.roleName}>{children}</MobileShell>
+    return (
+      <>
+        <VoiceCallListener enabled={canReceiveVoiceCalls} />
+        <MobileShell roleName={session.user.roleName}>{children}</MobileShell>
+      </>
+    )
   }
 
   return (
     <div className="flex min-h-screen bg-slate-50">
+      <VoiceCallListener enabled={canReceiveVoiceCalls} />
       <Sidebar />
       <div className="flex flex-1 flex-col">
         <Topbar hotelName={session.user.hotelName} />
