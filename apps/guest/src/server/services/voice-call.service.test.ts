@@ -33,14 +33,14 @@ beforeEach(() => {
 })
 
 describe('startVoiceCall', () => {
-  it('rings every Reception-role/hotel_admin staff user at this hotel', async () => {
+  it('rings only Reception-role staff at this hotel — not hotel_admin or any other role', async () => {
     const result = await startVoiceCall(CTX)
 
     expect(mockPrisma.users.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           hotel_id: 'hotel-1',
-          OR: [{ user_type: 'hotel_admin' }, { roles: { name: 'Reception' } }],
+          roles: { name: 'Reception' },
         }),
       }),
     )

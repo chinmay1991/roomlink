@@ -20,7 +20,12 @@ export default async function HotelPortalLayout({ children }: { children: React.
   // FORCE_NATIVE_SHELL dev override), never for a real browser — so this
   // branch is provably inert for every existing browser/PWA request, which
   // keeps taking the unchanged path below.
-  const canReceiveVoiceCalls = session.user.userType === 'hotel_admin' || session.user.roleName === 'Reception'
+  // Guest calls only ever ring the Reception role (voice-call.service.ts in
+  // apps/guest) — hotel_admin is deliberately excluded so a guest call rings
+  // the front desk and nowhere else. Mirroring that here means hotel_admin
+  // never even logs into ZIM for this, instead of maintaining a live
+  // connection for invitations that will never arrive.
+  const canReceiveVoiceCalls = session.user.roleName === 'Reception'
 
   if (isNativeClient()) {
     return (

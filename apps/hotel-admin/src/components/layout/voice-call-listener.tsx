@@ -77,8 +77,10 @@ class Ringtone {
  * Mounted once at the hotel portal layout level (hotel/layout.tsx), for
  * both the desktop browser and the Capacitor-wrapped native shell — not
  * only MobileShell, since desktop Reception also needs to receive calls.
- * `enabled` mirrors requireReceptionOrAdmin server-side (hotel_admin or the
- * Reception role); everyone else's session never touches ZegoCloud at all.
+ * `enabled` is Reception-role only, mirroring who apps/guest's
+ * startVoiceCall actually invites — a guest call rings the front desk and
+ * nowhere else, so every other role (including hotel_admin) never touches
+ * ZegoCloud at all.
  *
  * v1 is foreground-only by design (see the voice calling plan): this only
  * rings while this component is mounted and the tab/app is open.

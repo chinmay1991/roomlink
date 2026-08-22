@@ -19,12 +19,14 @@ export function staffZegoUserId(userId: string): string {
 }
 
 /**
- * Starts a call attempt: rings every Reception-role (+ hotel_admin) staff
- * user at this hotel at once (v1 has no "on duty" concept — see the voice
- * calling plan), first to accept in the client gets it. Rate-limited per
- * guest session the same way mobile verification is (session.service.ts) —
- * persisted via `call_logs` rows rather than an in-memory counter, since
- * Vercel's serverless instances don't share memory across requests.
+ * Starts a call attempt: rings every Reception-role staff user at this
+ * hotel at once — deliberately Reception only, not hotel_admin or any
+ * other role, so a guest call rings the front desk and nowhere else (v1
+ * has no "on duty" concept — see the voice calling plan), first to accept
+ * in the client gets it. Rate-limited per guest session the same way
+ * mobile verification is (session.service.ts) — persisted via `call_logs`
+ * rows rather than an in-memory counter, since Vercel's serverless
+ * instances don't share memory across requests.
  */
 export async function startVoiceCall(ctx: GuestSessionContext) {
   const since = new Date(Date.now() - CALL_WINDOW_MS)
@@ -40,7 +42,7 @@ export async function startVoiceCall(ctx: GuestSessionContext) {
       where: {
         hotel_id: ctx.hotelId,
         status: 'active',
-        OR: [{ user_type: 'hotel_admin' }, { roles: { name: 'Reception' } }],
+        roles: { name: 'Reception' },
       },
       select: { user_id: true },
     }),
